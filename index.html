@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#07120f" />
+  <title>BREAKPOINT</title>
+</head>
+<body>
+  <div id="app">
+    <canvas id="game"></canvas>
+    <header class="hud"><div><strong>BREAKPOINT</strong><span> PHASE 1</span></div><div id="status">AIM</div></header>
+    <section class="shot-ui">
+      <div class="spin-wrap">
+        <span>ENGLISH</span>
+        <div id="spin-pad" aria-label="Cue ball spin selector"><div id="spin-dot"></div></div>
+      </div>
+      <div class="power-wrap"><span>POWER</span><div class="power-track"><div id="power-fill"></div></div><b id="power-label">0%</b></div>
+    </section>
+    <div id="hint">Drag sideways to aim · pull down and release to shoot</div>
+  </div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
