@@ -22,7 +22,18 @@ test('Phase 1 renders and accepts a complete mouse shot', async ({ page }) => {
   await page.mouse.up();
   await expect(page.locator('#status')).toHaveText('WATCH');
 
-  await expect.poll(async () => page.locator('#status').textContent(), { timeout: 20000 }).toBe('AIM');
+  // Advance the same authoritative 120 Hz simulation without waiting wall-clock time.
+  // Rendering still gets the next frame and must transition WATCH -> AIM itself.
+  const settled = await page.evaluate(() => {
+    const w = (window as Window & { breakpoint?: { world: { isMoving(): boolean; fixedStep(): void } } }).breakpoint!.world;
+    let steps = 0;
+    while (w.isMoving() && steps < 120 * 30) { w.fixedStep(); steps += 1; }
+    return { moving: w.isMoving(), steps };
+  });
+  expect(settled.moving).toBe(false);
+  expect(settled.steps).toBeLessThan(120 * 30);
+  await expect(page.locator('#status')).toHaveText('AIM', { timeout: 3000 });
+
   const record = await page.evaluate(() => (window as Window & { lastBreakpointShot?: { finalBallStates?: unknown[] } }).lastBreakpointShot);
   expect(record).toBeTruthy();
   expect(record?.finalBallStates?.length).toBe(16);
