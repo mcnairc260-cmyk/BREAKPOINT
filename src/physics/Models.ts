@@ -7,10 +7,15 @@ export class FrictionModel {
   static apply(ball: BallBody, dt: number): void {
     if (ball.pocketed || ball.sleeping) return;
     const speed = Math.hypot(ball.velocity.x, ball.velocity.z);
-    if (speed < EPS) return;
+    if (speed < EPS) {
+      // A stopped center cannot retain horizontal rolling spin forever.
+      // Residual x/z angular state is cloth-contact energy and is quenched at rest.
+      ball.velocity = { x: 0, z: 0 };
+      ball.angularVelocity.x = 0;
+      ball.angularVelocity.z = 0;
+      return;
+    }
 
-    // Velocity at the cloth contact patch. For a sphere on a horizontal plane,
-    // rolling condition is v = (r*wz, -r*wx).
     const contactX = ball.velocity.x - ball.radius * ball.angularVelocity.z;
     const contactZ = ball.velocity.z + ball.radius * ball.angularVelocity.x;
     const slip = Math.hypot(contactX, contactZ);
@@ -22,20 +27,22 @@ export class FrictionModel {
       const nz = contactZ / slip;
       ball.velocity.x -= nx * dv;
       ball.velocity.z -= nz * dv;
-
-      // Equal/opposite cloth impulse produces torque. I=2/5mr² => angular factor 5/(2r).
       const angularDelta = (2.5 * dv) / ball.radius;
       ball.angularVelocity.z += nx * angularDelta;
       ball.angularVelocity.x -= nz * angularDelta;
     } else {
       const decel = PHYSICS.ROLLING_FRICTION * PHYSICS.GRAVITY * dt;
       const next = Math.max(0, speed - decel);
-      const scale = speed > EPS ? next / speed : 0;
+      const scale = next / speed;
       ball.velocity.x *= scale;
       ball.velocity.z *= scale;
       if (next > EPS) {
         ball.angularVelocity.z = ball.velocity.x / ball.radius;
         ball.angularVelocity.x = -ball.velocity.z / ball.radius;
+      } else {
+        ball.velocity = { x: 0, z: 0 };
+        ball.angularVelocity.x = 0;
+        ball.angularVelocity.z = 0;
       }
     }
   }
@@ -46,6 +53,7 @@ export class SpinModel {
     if (ball.pocketed || ball.sleeping) return;
     const sideDecay = Math.exp(-PHYSICS.SPIN_DECAY * dt);
     ball.angularVelocity.y *= sideDecay;
+    if (Math.abs(ball.angularVelocity.y) < 0.01) ball.angularVelocity.y = 0;
     ball.angularVelocity.x = clamp(ball.angularVelocity.x, -PHYSICS.MAX_ANGULAR, PHYSICS.MAX_ANGULAR);
     ball.angularVelocity.y = clamp(ball.angularVelocity.y, -PHYSICS.MAX_ANGULAR, PHYSICS.MAX_ANGULAR);
     ball.angularVelocity.z = clamp(ball.angularVelocity.z, -PHYSICS.MAX_ANGULAR, PHYSICS.MAX_ANGULAR);
