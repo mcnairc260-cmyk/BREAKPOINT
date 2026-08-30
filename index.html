@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover + user-scalable=no: full-bleed canvas, no pinch-zoom mid-shot -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#0a0a0f" />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      name="description"
+      content="BREAKPOINT — a physics-first pool game. Aim, spin, strike, watch the table settle."
+    />
+    <!-- Small, non-visual DPA attribution; the visible one lives on the start screen. -->
+    <meta name="author" content="Dragon Phoenix Ascension" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BREAKPOINT" />
+    <title>BREAKPOINT</title>
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <!-- three.js renders straight into this canvas; it is also the aim surface -->
+    <div id="game-root"><canvas id="game-canvas"></canvas></div>
+
+    <!-- DOM overlay: power, spin, status, shot log -->
+    <div id="ui-root"></div>
+
+    <noscript>
+      <div class="noscript">BREAKPOINT needs JavaScript enabled to run.</div>
+    </noscript>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,498 @@
+/*
+ * Dark-mode-first, as the Constitution requires. Colours and type stacks mirror
+ * `src/config/brand.ts`; the two are kept in step by hand because CSS cannot
+ * import the TypeScript module and duplicating a handful of values beats
+ * shipping a build step to avoid it.
+ *
+ * Everything here follows the DPA Brand Bible §5: the Void Black / Carbon /
+ * Ember / Gold / Cyan palette, the Ember-to-Gold fire gradient used sparingly,
+ * a squared geometric sans for display and a monospace for HUD data. The rule
+ * the game applies on top of the Bible is that the table always wins — brand
+ * expression lives in the chrome around the cloth, never on it.
+ */
+:root {
+  --void: #0a0a0f;
+  --carbon: #14141c;
+  --ember: #ff6b2c;
+  --gold: #ffb300;
+  --cyan: #22d3ee;
+  --ghost: #f4f4f5;
+  --steel: #8b8b99;
+
+  --font-display: 'Space Grotesk', 'Sora', 'Rajdhani', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --pad: clamp(10px, 2.5vw, 20px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--void);
+  color: var(--ghost);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+#game-root,
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  /* The canvas is a gesture surface; never let the browser pan or zoom it. */
+  touch-action: none;
+}
+
+#ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Everything interactive opts back in explicitly. */
+.start,
+.spin-pad,
+.cue-pad {
+  pointer-events: auto;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(var(--pad) + var(--safe-t)) var(--pad) calc(var(--pad) + var(--safe-b));
+}
+
+/* ------------------------------------------------------------------ header */
+
+.hud-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brandmark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  font-size: clamp(14px, 3.4vw, 20px);
+  color: var(--ghost);
+}
+
+.brandmark span {
+  background: linear-gradient(90deg, var(--ember), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.status {
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 244, 245, 0.14);
+  background: rgba(20, 20, 28, 0.62);
+  backdrop-filter: blur(8px);
+  color: var(--steel);
+}
+
+.status[data-phase='aim'] {
+  color: var(--cyan);
+  border-color: rgba(34, 211, 238, 0.4);
+}
+
+.status[data-phase='run'] {
+  color: var(--gold);
+  border-color: rgba(255, 179, 0, 0.4);
+}
+
+/* ------------------------------------------------------------------ bottom */
+
+.hud-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--pad);
+}
+
+.spin-block,
+.cue-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.pad-label {
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--steel);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.pad-readout {
+  margin-top: 8px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  text-align: center;
+  min-height: 12px;
+}
+
+/* --- spin selector: a cue ball you place the tip on --- */
+
+.spin-pad {
+  position: relative;
+  width: clamp(84px, 21vw, 118px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, #fbfaf4, #cdcabc 62%, #6f6d64);
+  box-shadow:
+    0 10px 26px rgba(0, 0, 0, 0.55),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.28);
+  cursor: crosshair;
+}
+
+/* The two arms of the centre cross, kept as separate hairlines. */
+.spin-cross {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 50%;
+  height: 1px;
+  transform: translateY(-0.5px);
+  background: rgba(20, 20, 28, 0.22);
+}
+
+.spin-pad::after {
+  content: '';
+  position: absolute;
+  top: 8%;
+  bottom: 8%;
+  left: 50%;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: rgba(20, 20, 28, 0.22);
+}
+
+/* The miscue limit: past this ring a real tip slips off the ball. */
+.spin-limit {
+  position: absolute;
+  inset: 25%;
+  border-radius: 50%;
+  border: 1px dashed rgba(20, 20, 28, 0.3);
+}
+
+.spin-dot {
+  position: absolute;
+  width: 16%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--ember);
+  box-shadow: 0 0 0 2px rgba(10, 10, 15, 0.5), 0 0 14px rgba(255, 107, 44, 0.8);
+  left: 50%;
+  top: 50%;
+}
+
+/* --- cue pad: pull back, release --- */
+
+.cue-pad {
+  position: relative;
+  width: clamp(64px, 16vw, 84px);
+  height: clamp(150px, 30vh, 230px);
+  border-radius: 42px;
+  border: 1px solid rgba(244, 244, 245, 0.12);
+  background: linear-gradient(180deg, rgba(20, 20, 28, 0.5), rgba(10, 10, 15, 0.82));
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+  cursor: grab;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.cue-pad:active {
+  cursor: grabbing;
+}
+
+.power-track {
+  position: absolute;
+  inset: 6px;
+  border-radius: 38px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.power-fill {
+  width: 100%;
+  height: 50%;
+  background: linear-gradient(0deg, var(--ember), var(--gold));
+  opacity: 0.85;
+  transition: height 60ms linear;
+}
+
+.cue-grip {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30%;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(244, 244, 245, 0.28);
+}
+
+.power-value {
+  position: relative;
+  margin-bottom: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--ghost);
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.8);
+}
+
+/* Locked while the balls are running — visibly, not just functionally. */
+.hud.is-locked .cue-pad,
+.hud.is-locked .spin-pad {
+  opacity: 0.4;
+  filter: grayscale(0.5);
+  pointer-events: none;
+}
+
+/* -------------------------------------------------------------- shot log */
+
+.log {
+  position: absolute;
+  top: calc(var(--pad) + var(--safe-t) + 42px);
+  right: var(--pad);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+  max-width: 62vw;
+}
+
+.log-line {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--steel);
+  background: rgba(10, 10, 15, 0.55);
+  border: 1px solid rgba(244, 244, 245, 0.08);
+  border-radius: 4px;
+  padding: 3px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.log-line.is-pot {
+  color: var(--gold);
+  border-color: rgba(255, 179, 0, 0.28);
+}
+
+.log-line.is-scratch {
+  color: var(--ember);
+  border-color: rgba(255, 107, 44, 0.3);
+}
+
+/*
+ * The hint sits under the header rather than at the foot of the screen: the
+ * bottom strip is where the cue, the power pad and the spin pad all live, and
+ * anything centred down there ends up printed across the cue.
+ */
+.hint {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--pad) + var(--safe-t) + 46px);
+  transform: translateX(-50%);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--steel);
+  text-align: center;
+  opacity: 0.75;
+  pointer-events: none;
+  transition: opacity 400ms ease;
+  max-width: 44vw;
+}
+
+.hud.is-locked .hint {
+  opacity: 0;
+}
+
+@media (max-width: 620px) {
+  .hint {
+    max-width: 52vw;
+    font-size: 9px;
+  }
+}
+
+.noscript {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  text-align: center;
+  color: var(--ghost);
+  background: var(--void);
+}
+
+/* ------------------------------------------------------- start presentation */
+
+/*
+ * The one screen carrying explicit DPA branding. Void Black ground, Carbon
+ * panel, the fire gradient on the wordmark only, and motion that resolves
+ * rather than bounces (Brand Bible §5). It removes itself on start, so nothing
+ * here can ever sit between the player and the table.
+ */
+.start {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  display: grid;
+  place-items: center;
+  padding: calc(var(--pad) * 2);
+  background:
+    radial-gradient(120% 80% at 50% 12%, rgba(255, 107, 44, 0.09), transparent 62%),
+    rgba(10, 10, 15, 0.93);
+  backdrop-filter: blur(6px);
+  transition: opacity 380ms ease, visibility 380ms ease;
+  z-index: 20;
+}
+
+.start.is-gone {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.start-inner {
+  width: min(420px, 100%);
+  text-align: center;
+  border: 1px solid rgba(244, 244, 245, 0.09);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20, 20, 28, 0.86), rgba(10, 10, 15, 0.86));
+  padding: clamp(22px, 5vw, 34px) clamp(18px, 5vw, 30px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.6);
+  /* HUD elements resolving into place: a short settle, no bounce. */
+  animation: start-resolve 520ms cubic-bezier(0.16, 0.84, 0.3, 1) both;
+}
+
+@keyframes start-resolve {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.start-eyebrow {
+  font-size: 9px;
+  letter-spacing: 0.34em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+
+.start-mark {
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  font-size: clamp(28px, 8vw, 42px);
+  margin: 14px 0 0;
+  color: var(--ghost);
+}
+
+/* The fire gradient, used once. */
+.start-mark span {
+  background: linear-gradient(90deg, var(--ember), var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.start-rule {
+  height: 1px;
+  margin: 16px auto 0;
+  width: 62%;
+  background: linear-gradient(90deg, transparent, rgba(255, 107, 44, 0.55), transparent);
+}
+
+.start-motto {
+  margin: 14px 0 0;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.start-action {
+  margin-top: 22px;
+  width: 100%;
+  min-height: 48px; /* comfortably above the 44pt touch guidance */
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 44, 0.5);
+  background: linear-gradient(180deg, rgba(255, 107, 44, 0.18), rgba(255, 107, 44, 0.07));
+  color: var(--ghost);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, transform 120ms ease;
+}
+
+.start-action:hover,
+.start-action:focus-visible {
+  border-color: var(--ember);
+  background: linear-gradient(180deg, rgba(255, 107, 44, 0.3), rgba(255, 107, 44, 0.12));
+  outline: none;
+}
+
+.start-action:active {
+  transform: translateY(1px);
+}
+
+.start-hint {
+  margin: 16px 0 0;
+  font-size: 10px;
+  line-height: 1.7;
+  letter-spacing: 0.06em;
+  color: var(--steel);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .start-inner {
+    animation: none;
+  }
+}
