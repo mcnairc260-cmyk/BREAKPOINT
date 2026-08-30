@@ -1,0 +1,14 @@
+{
+  "name": "Breakpoint.Simulation",
+  "rootNamespace": "Breakpoint.Simulation",
+  "references": [],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": true
+}

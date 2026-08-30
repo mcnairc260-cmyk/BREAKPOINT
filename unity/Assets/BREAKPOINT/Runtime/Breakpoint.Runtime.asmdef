@@ -1,0 +1,19 @@
+{
+  "name": "Breakpoint.Runtime",
+  "rootNamespace": "Breakpoint",
+  "references": [
+    "Breakpoint.Simulation",
+    "Breakpoint.Geometry",
+    "UnityEngine.UI",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

@@ -1,0 +1,25 @@
+{
+  "name": "Breakpoint.Tests.EditMode",
+  "rootNamespace": "Breakpoint.Tests",
+  "references": [
+    "Breakpoint.Simulation",
+    "Breakpoint.Geometry",
+    "UnityEngine.TestRunner",
+    "UnityEditor.TestRunner"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": true,
+  "precompiledReferences": [
+    "nunit.framework.dll"
+  ],
+  "autoReferenced": false,
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

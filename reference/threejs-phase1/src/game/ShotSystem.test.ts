@@ -199,6 +199,26 @@ describe('aiming line', () => {
     expect(Math.abs(dot)).toBeLessThan(1e-9);
   });
 
+  it('sends the tangent line forwards, not back down the cue ball path', () => {
+    // Perpendicularity alone does not pin the sign, and for a long time it did
+    // not: the drawn 90-degree line pointed backwards. A cut to the left must
+    // throw the cue ball forwards and to the right, and vice versa.
+    for (const offset of [0.02, -0.02]) {
+      const world = new PhysicsWorld();
+      world.addBall(0, { x: -0.6, y: offset });
+      world.addBall(1, { x: 0, y: 0 });
+      const p = predictAim(world, 0)!;
+      expect(p.target).not.toBeNull();
+      // Forwards: positive component along the direction of travel (+x).
+      expect(p.cueTangent!.x).toBeGreaterThan(0);
+      // Opposite side to the object ball.
+      expect(Math.sign(p.cueTangent!.y)).toBe(Math.sign(offset));
+      // And it is still the perpendicular.
+      const d = p.cueTangent!.x * p.targetDirection!.x + p.cueTangent!.y * p.targetDirection!.y;
+      expect(Math.abs(d)).toBeLessThan(1e-9);
+    }
+  });
+
   it('stops at a cushion when nothing is in the way', () => {
     const world = new PhysicsWorld();
     world.addBall(0, { x: 0.5, y: 0 });

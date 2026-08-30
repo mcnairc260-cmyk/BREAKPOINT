@@ -1,6 +1,21 @@
-node_modules
-dist
-*.local
+# Node — the three.js reference implementation
+node_modules/
+dist/
+playwright-report/
+test-results/
 *.tsbuildinfo
-playwright-report
-test-results
+
+# Unity — see unity/.gitignore for the full set
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Ll]ogs/
+
+# Headless C# test and shape-check output
+unity/tools/parity/build/
+unity/tools/compile-check/build/
+
+# OS
+.DS_Store
+Thumbs.db
