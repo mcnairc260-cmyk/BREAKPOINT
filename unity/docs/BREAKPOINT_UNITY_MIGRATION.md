@@ -10,33 +10,35 @@ be verified in the environment this work was done in.
 
 ## 0. Where this work lives
 
-Two branches, with a deliberate division:
+This repository is BREAKPOINT's canonical home. Two implementations, with a
+deliberate division of authority:
 
-| Branch | What it is |
+| Path | What it is |
 | --- | --- |
-| `claude/breakpoint-phase-1-pool-1sjmmi` | The **historical Phase 1 implementation**, frozen at `b67701f` — the verified, hardened baseline. Preserved as the reference; not developed on. |
-| `claude/breakpoint-unity-migration-phase-a` | **This work.** Branched from `b67701f`, carrying Phase 1 unchanged plus the Unity migration. |
+| `unity/` | **This work.** The primary implementation: Unity 6 plus a custom deterministic C# simulation. |
+| `reference/threejs-phase1/` | The hardened Phase 1 slice, preserved as the **physics oracle**. Runnable, tested, CI-gated. Not developed as a product. |
 
-`b67701f` is the baseline because it is the newest verified commit containing
-the *complete* Phase 1 implementation. `main` is one generation behind it: PR
-#14 merged the original Phase 1 (`62967b3`), but the validation-and-hardening
-pass never reached `main`. So `main` lacks the simultaneous-contact fix, the
-table containment rule, the mobile camera framing fix, the extended shot
-records, the 122-test suite and the CI workflow. Branching from `main` would
-have ported a physics engine with two known defects in it.
+### How it got here
 
-The Unity commits were originally made on the Phase 1 branch, before the
-instruction arrived that they belonged on their own. They were moved by
-creating this branch at the same commits and reverting them forward on the
-Phase 1 branch — no history rewritten, no force-push, both commits still
-reachable from both branches. The Phase 1 branch's tree is now byte-identical
-to `b67701f` again.
+The Unity migration was built in the `dragon-phoenix-command` monorepo under
+`games/breakpoint-unity/`, on a branch taken from `b67701f` — the verified,
+hardened Phase 1 baseline. That baseline mattered: the monorepo's `main` was a
+generation behind it, missing the simultaneous-contact fix, the table
+containment rule, the mobile camera framing fix, the extended shot records,
+the larger test suite and CI. Porting from `main` would have carried two known
+physics defects into C#.
 
-One consequence: the Phase 1 branch no longer carries the `AimPredictor`
-tangent-sign fix that the port discovered (§8). That fix lives here. It is an
-aiming-overlay defect that no physics reads and no parity fixture covers, so
-the reference branch sits at exactly the state it was verified in — which is
-what a reference branch should be.
+Both implementations were then moved here, which is now the source of truth.
+The monorepo copies are historical.
+
+### What changed in the move
+
+The oracle gained the `AimPredictor` tangent-sign fix and its regression test
+(§8) — found by this port, and previously present only on the migration
+branch. Fixture generation became repository-relative and ESM-safe
+(`generate-fixtures.mts`); regenerating from the moved oracle produces a
+byte-identical fixture file, which is the evidence that the move preserved
+behaviour rather than merely compiling.
 
 ---
 
