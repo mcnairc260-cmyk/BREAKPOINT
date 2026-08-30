@@ -1,0 +1,132 @@
+# CI for the BREAKPOINT Unity port.
+#
+# This does NOT run Unity. Running the Unity Test Framework in CI needs a
+# licensed editor image, and claiming a Unity result we did not produce would
+# be worse than having no job at all.
+#
+# What it does run is the part that genuinely does not need an engine. The
+# simulation and the mesh geometry are both compiled with
+# "noEngineReferences": true, which means they can be built and tested by a
+# plain C# compiler — and that is the same code that decides where every ball
+# goes. So the physics, the determinism guarantees, the parity against the
+# TypeScript oracle, and the table's generated geometry are all verified on
+# every change, with no engine and no licence.
+#
+# The Unity-side assemblies (Presentation, Rendering, Input, UI) and the
+# play-mode tests are not covered here. See
+# unity/docs/BREAKPOINT_UNITY_MIGRATION.md, "Test status".
+name: Unity (authoritative)
+
+on:
+  push:
+    paths:
+      - 'unity/**'
+      - '.github/workflows/unity-ci.yml'
+  pull_request:
+    paths:
+      - 'unity/**'
+      - '.github/workflows/unity-ci.yml'
+
+concurrency:
+  group: breakpoint-unity-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  simulation:
+    name: Simulation and geometry tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Mono
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends mono-devel
+
+      # -warnaserror+ -warn:4 is set inside the script. A warning in the
+      # authoritative simulation is a failure, not a note.
+      - name: Run edit-mode tests without Unity
+        working-directory: unity
+        run: ./tools/parity/run-tests.sh
+
+      # A shape check, not a Unity build. It proves the presentation, rendering,
+      # input and UI code parses and names only members that exist. Read the
+      # header of tools/compile-check/UnityApiStub.cs before reading anything
+      # more into a green result.
+      - name: Shape-check the Unity-facing code against an API stub
+        working-directory: unity
+        run: ./tools/compile-check/run.sh
+
+      # The port is only meaningful against an oracle that still works. If the
+      # reference implementation has drifted, the parity fixtures are stale and
+      # a green parity run means nothing.
+      - name: Verify the physics oracle is intact
+        working-directory: reference/threejs-phase1
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+  guardrails:
+    name: Structural guarantees
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The single most important invariant in this migration: PhysX must never
+      # become the authoritative billiards simulation. It is enforced by the
+      # authoritative assemblies having no engine reference at all. If someone
+      # flips that flag, every other check here would still pass.
+      - name: Authoritative assemblies must not reference the engine
+        working-directory: unity
+        run: |
+          set -euo pipefail
+          for asmdef in \
+            Assets/BREAKPOINT/Runtime/Simulation/Breakpoint.Simulation.asmdef \
+            Assets/BREAKPOINT/Runtime/Geometry/Breakpoint.Geometry.asmdef
+          do
+            if ! grep -q '"noEngineReferences": true' "$asmdef"; then
+              echo "FAIL: $asmdef no longer declares noEngineReferences: true"
+              exit 1
+            fi
+            echo "ok: $asmdef"
+          done
+
+      # Belt and braces: the Mono build in the other job already proves this,
+      # since it compiles with no Unity reference assemblies present at all.
+      # Comment lines are excluded — the assemblies are allowed to *mention*
+      # the engine when explaining why they do not use it.
+      - name: No UnityEngine usage in the authoritative assemblies
+        working-directory: unity
+        run: |
+          set -euo pipefail
+          hits=$(grep -rn 'UnityEngine' \
+                   Assets/BREAKPOINT/Runtime/Simulation \
+                   Assets/BREAKPOINT/Runtime/Geometry \
+                 | grep -Ev ':[0-9]+: *(//|\*)' || true)
+          if [ -n "$hits" ]; then
+            echo "FAIL: the simulation or geometry assembly uses UnityEngine"
+            echo "$hits"
+            exit 1
+          fi
+          echo "ok: neither assembly uses UnityEngine"
+
+      # The reference implementation is the oracle for this port. Deleting or
+      # gutting it would silently invalidate every parity fixture.
+      - name: The TypeScript oracle is still present
+        run: |
+          set -euo pipefail
+          for f in \
+            reference/threejs-phase1/src/physics/PhysicsWorld.ts \
+            reference/threejs-phase1/src/physics/BallCollision.ts \
+            reference/threejs-phase1/src/physics/RailCollision.ts \
+            reference/threejs-phase1/src/game/Rack.ts
+          do
+            test -f "$f" || { echo "FAIL: missing oracle file $f"; exit 1; }
+            echo "ok: $f"
+          done

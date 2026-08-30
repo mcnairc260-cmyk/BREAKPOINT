@@ -1,307 +1,112 @@
 # BREAKPOINT
 
-> *Fire Within. Power Unleashed.*
+A physics-first pool game. Premium, tactical, timeless.
 
-A physics-first 3D pool game. Phase 1 is a **playable vertical slice**: one
-table, one rack, and the full shot loop — aim, spin, power, strike, watch,
-shoot again — on a deterministic 120 Hz simulation.
+Part of the **Dragon Phoenix Ascension** ecosystem.
 
-This repository is the canonical home of BREAKPOINT. The implementation was
-developed and hardened inside the Dragon Phoenix Ascension monorepo and
-consolidated here; that copy is now historical.
+---
 
-BREAKPOINT is part of the Dragon Phoenix Ascension ecosystem and carries its
-DNA — the palette, the type stacks and the command-center restraint of the DPA
-Brand Bible — but it is a pool game first. Brand expression lives in the chrome
-around the table (the start presentation, the wordmark, HUD accents) and never
-on the cloth, where readability wins.
-
-## Run it
-
-```bash
-npm install
-npm run dev        # http://localhost:5174
-```
-
-| Script | What it does |
-|---|---|
-| `npm run dev` | Vite dev server, exposed on the LAN so a phone can load it |
-| `npm run build` | Type-check then production build into `dist/` |
-| `npm run preview` | Serve the production build |
-| `npm run typecheck` | `tsc -b --noEmit` across app, node and e2e projects |
-| `npm run test` | Vitest — physics and game logic, headless, no DOM needed |
-| `npm run lint` | ESLint |
-| `npm run e2e` | Playwright acceptance tests against the **built** app |
-| `npm run verify` | All of the above, in the order CI runs them |
-
-`npm run e2e` builds nothing itself — run `npm run build` first, or use
-`npm run verify`.
-
-### Running the browser tests locally
-
-Playwright needs a Chromium. Normally `npx playwright install chromium` is
-enough. If your environment already ships one for a different Playwright build,
-point at it instead:
-
-```bash
-BREAKPOINT_CHROMIUM=/path/to/chrome npm run e2e
-```
-
-## Controls
-
-Mouse and touch run through one input model — there is no separate desktop
-path.
-
-| Gesture | Effect |
-|---|---|
-| Drag the table sideways | Rotate aim |
-| Drag the table up/down | Raise or lower the camera |
-| Tap the table | Aim at that point |
-| Wheel / pinch | Zoom |
-| Drag on the **cue ball widget** (bottom left) | Place the cue tip: follow, draw, English |
-| Pull **down** on the cue pad (bottom right), then release | Load power and shoot |
-| Pull back and return to the start | Cancel the shot |
-
-Controls are locked while the balls are moving. That lock lives in
-`ShotSystem`, not in the UI, so no input path can bypass it.
-
-## Architecture
+## Two implementations, one authority
 
 ```
-.github/workflows/phase1-ci.yml   the single required CI gate
-e2e/                              Playwright browser acceptance suite
-src/
-├── physics/          the simulation — no DOM, no three.js, fully testable
-│   ├── PhysicsConstants.ts   every physical constant, SI units
-│   ├── Vec.ts                vector maths
-│   ├── TableGeometry.ts      cushions, jaws, pockets as data
-│   ├── BallBody.ts           one ball's state; cloth contact velocity
-│   ├── FrictionModel.ts      sliding, sliding→rolling, rolling, spin decay
-│   ├── SpinModel.ts          cue strike → linear + angular velocity
-│   ├── BallCollision.ts      continuous detection, impulse + throw
-│   ├── RailCollision.ts      cushion contact above centre, jaws
-│   ├── PocketPhysics.ts      capture
-│   └── PhysicsWorld.ts       fixed-step integrator with in-step CCD
-├── core/FixedStepDriver.ts   the only bridge from frames to simulation steps
-├── game/             rules-free shot loop
-│   ├── Rack.ts               the opening position
-│   ├── ShotRecord.ts         the replayable record of one shot
-│   ├── ShotSystem.ts         AIM → SPIN → POWER → STRIKE → WATCH → NEXT
-│   └── AimPredictor.ts       aiming line, ghost ball, tangent line
-├── render/           three.js; reads the world, never writes to it
-├── input/            PointerControls — one path for mouse, touch and pen
-├── audio/            procedural WebAudio, intensity driven by real impulses
-└── ui/               DOM overlay, and the DPA start presentation
+BREAKPOINT/
+├── unity/                        the primary implementation  ← build here
+├── reference/threejs-phase1/     the physics oracle          ← do not delete
+├── docs/
+└── .github/workflows/
 ```
 
-Two invariants hold the whole thing up, and each has a regression test:
+**`unity/`** is BREAKPOINT's future: Unity 6 for rendering, cameras, lighting,
+materials, UI, audio and platform builds, wrapped around a **custom
+deterministic C# billiards simulation** that Unity is not allowed to touch.
 
-1. **Rendering cannot change physics outcomes.** The renderer only reads.
-2. **Frame rate cannot change physics outcomes.** `FixedStepDriver` spends
-   wall-clock time in whole 1/120 s steps, so 30 fps and 144 fps produce
-   identical tables.
+**`reference/threejs-phase1/`** is the hardened TypeScript/three.js Phase 1
+slice. It is complete, playable and passing, and it is kept for a specific
+reason: it is the **behavioural oracle** the C# port is measured against, shot
+by shot, via generated parity fixtures. Deleting it would invalidate every one
+of those fixtures.
 
-## The physics
+Unity is the primary implementation. The three.js build is the reference until
+Unity passes parity verification in an actual editor — see
+`unity/docs/BREAKPOINT_UNITY_MIGRATION.md` for exactly what that means and what
+still has not been executed.
 
-The model is the standard one for pocket billiards (Alciatore's technical
-proofs; Marlow, *The Physics of Pocket Billiards*), in SI units, with the cloth
-as z = 0 and +z up.
+---
 
-- **Cloth.** Two regimes chosen by whether the contact patch
-  `u = v + ω × (0,0,−R)` is slipping. Sliding applies `a = −μₛg·û` and the
-  matching torque, so draw turns into follow on its own. Rolling applies
-  rolling resistance and holds ω on the rolling constraint. ωz (English) decays
-  separately through drilling friction, which is why side spin outlives the
-  roll.
-- **Cue strike.** Tip offset `(a, b)` in ball radii gives
-  `Δω = (5v₀/2R)·(a·ẑ − b·ŝ)`. At `b = 0.4` that is exactly natural roll, which
-  the test suite asserts rather than assumes.
-- **Ball–ball.** Continuous time-of-impact, a normal impulse with restitution,
-  and a Coulomb-limited tangential impulse — the source of throw and of spin
-  transfer between balls.
-- **Cushions.** The nose sits at 1.27 R, *above* the ball's centre, so the
-  contact point is offset. The normal impulse therefore torques the ball
-  forward (a ball leaves a rail with more topspin than it arrived with) and ωz
-  produces a tangential friction impulse along the rail (running and reverse
-  English change the rebound angle). Resolution uses the rigid-body contact
-  impulse `J = −(1+e)·v_contact·n̂ / K`, which cannot increase energy.
-- **Pockets.** Capture is only a proximity test against a point set back in the
-  throat. Rattling and rejection come from the jaw circles, not from special
-  cases — a ball rejects because it genuinely clipped a jaw.
-- **Integration.** Fixed 1/120 s steps, each subdivided at the earliest
-  contact. At break speed a ball covers ~10 cm per step, nearly two diameters,
-  so cutting the step at the contact makes tunnelling impossible rather than
-  unlikely.
+## The rule that matters
 
-Nothing in the model uses randomness. Identical inputs give identical outputs.
+**Unity draws the game. It does not decide it.**
 
-## Shot records
+`unity/Assets/BREAKPOINT/Runtime/Simulation/` and `.../Geometry/` both declare
+`"noEngineReferences": true` in their assembly definitions. The code that
+decides where a ball goes cannot name `Rigidbody`, `Transform`,
+`Time.deltaTime` or `UnityEngine.Random` — the compiler stops it, not a code
+review. Unity PhysX is not the authority and cannot become it.
 
-Every committed shot produces a plain-data `ShotRecord`: pre- and post-shot ball
-states, cue ball position, aim angle, power, tip contact point, the generated
-impulse, the full event stream, balls pocketed, rail contacts, first object-ball
-contact, scratch flag, duration and step count.
+The only collider in the entire scene is a trigger box used to turn a screen
+tap into a table coordinate. There are no rigidbodies. CI asserts both facts.
 
-Because the simulation is deterministic, the pre-shot state plus the strike is
-enough to reproduce the rest exactly — which is what makes the record the
-foundation for rules, AI, replay, trick shots and multiplayer sync later.
-`ShotSystem.test.ts` asserts the round trip.
+---
 
-## Validation status
+## Running the checks
 
-**Phase 1 hardened 2026-08-29, then consolidated into this repository as the
-canonical home.** Everything below was executed in *this* repository from a
-clean `npm ci`, not carried over from the monorepo.
+### Deterministic physics — no Unity, no licence, no GPU
 
-| Check | Command | Result |
-|---|---|---|
-| Unit + physics tests | `npm test` | **122 passed**, 5 files |
-| Typecheck | `npm run typecheck` | clean (app, node, e2e projects) |
-| Lint | `npm run lint` | clean, no exceptions |
-| Production build | `npm run build` | clean |
-| Browser acceptance | `npm run e2e` | **39 passed, 1 skipped**, 0 failed, 4 viewport projects |
-| Physics throughput | benchmark | **256× realtime** warm (~33 µs per 120 Hz step) |
-| Real-device testing | — | **not performed** — see below |
+```sh
+cd unity
+./tools/parity/run-tests.sh      # 93 tests: physics, determinism, parity, geometry, allocation
+./tools/compile-check/run.sh     # shape-check the Unity-facing code (NOT a Unity build)
+```
 
-Browser environment: headless Chromium under SwiftShader software rendering.
-Viewport projects, each a separate CI-visible run:
+Both need `mono-devel` (`sudo apt-get install -y mono-devel`). This is the
+suite that matters: the simulation is engine-free by design, so its guarantees
+are verifiable in CI without an editor.
 
-| Project | Viewport | Notes |
-|---|---|---|
-| `desktop-1280x800` | 1280 × 800 | mouse |
-| `mobile-portrait-390x844` | 390 × 844 | touch, DSR 3 |
-| `mobile-portrait-430x932` | 430 × 932 | touch, DSR 3 |
-| `mobile-landscape-844x390` | 844 × 390 | touch, DSR 3 |
+### The three.js reference
 
-The one skip is the touch-input test on the desktop project, which has no
-touchscreen. The suite drives the real UI: it clears the start screen, asserts
-real geometry was drawn, aims by drag and by tap (projected from a known table
-coordinate, so a tap cannot silently land on the room), sets spin, loads power
-with the pull-back gesture, confirms a 4-pixel nudge cancels instead of firing,
-plays a complete shot, checks the controls are locked while the balls run and
-reopen when they stop, verifies the whole table comes into frame, rotates the
-viewport mid-shot, plays a second shot, and validates a full ShotRecord.
+```sh
+cd reference/threejs-phase1
+npm ci
+npm run verify    # typecheck, lint, unit tests, build, browser acceptance
+```
 
-Shots are advanced by driving the real game loop with clamped frame deltas
-rather than sleeping, so the suite tests the production code path without
-spending eight seconds of wall clock per shot.
+### Regenerating parity fixtures from the oracle
 
-### Defects found and fixed during hardening
+```sh
+npx tsx unity/tools/parity/generate-fixtures.mts
+```
 
-1. **Simultaneous contacts were resolved sequentially.** A cue ball splitting a
-   frozen pair dead centre came off with 0.47 m/s of transverse velocity out of
-   a perfectly symmetric shot, the two object balls left at speeds differing by
-   48%, and swapping which ball was stored first flipped the result. A rack is
-   full of frozen pairs, so this fired on every break. Contacts at the same
-   instant are now solved together, matching the closed-form elastic solution.
-2. **Balls could escape the table.** A 24 mm band of entry angles at each corner
-   threaded the mouth, missing both jaws *and* the capture point, with nothing
-   beyond to stop them. Containment now follows the rule the cushions imply.
-   Rattling out is unaffected: 165 of 576 swept corner approaches still reject.
-3. **The visual control lock never applied** — the class went on the wrong
-   element, so the pads never dimmed and kept swallowing touches mid-shot.
-4. **The overview camera did not fit a phone**, so a mobile player could not see
-   the shot they had just played.
-5. **The pendant lamp occluded the table** from the corrected framing.
-6. **Latent GPU and memory leaks** — undisposed resources on re-rack, and
-   unbounded shot history.
+---
 
-### Verified, and found correct
+## Opening the Unity project
 
-Determinism and replay; frame-rate independence at 30/60/75/120/144/240 fps and
-under jittering frames; head-on, angled, glancing and stationary-target
-collisions; the 90° rule; momentum conservation across a batch-resolved contact;
-sliding, the transition to rolling, rolling resistance against the closed-form
-stopping distance, spin decay and stable rest; draw, follow, stun and both
-English directions; cushion rebound and spin-dependent cushion response; corner
-and side capture from 0.25 to 12 m/s; pocket rejection; tunnelling resistance at
-break speed; and 24 swept break shots settling with no energy created, no NaN,
-no escapes and no overlapping balls at rest.
+Unity **6000.0.23f1**. Open `unity/`, then
+`Assets/BREAKPOINT/Scenes/Breakpoint.unity`.
 
-Two behaviours were investigated and found **correct, not defective**: a ball
-rolled at 0.35 m/s from half a metre stops short of the pocket rather than being
-drawn in (pockets are not vacuums), and net displacement is much shorter than
-path length because each cushion contact removes most of a ball's linear energy.
+Four settings must be applied on first open — they are listed in
+`unity/docs/BREAKPOINT_UNITY_MIGRATION.md` §9 rather than committed, because
+hand-writing `ProjectSettings.asset` blind risks a project that will not open.
 
-Throughput was measured over five full breaks after warm-up: 904 steps in a
-mean 29.5 ms, i.e. 7.5 s of table simulated per 0.03 s of wall clock, or about
-0.065 ms of a 16.7 ms frame at 60 fps. A first, un-warmed break costs roughly
-twice that while the JIT settles. This is CPU cost only and says nothing about
-GPU cost.
+**Nothing in `unity/` has ever been compiled by Unity or rendered.** That is
+stated plainly in the migration document's test-status section, and it is the
+gate to Phase B.
 
-### Real-device status
+---
 
-**No testing on physical hardware has been done.** The browser validation runs
-under SwiftShader software rendering, which proves correctness, layout and
-interaction but says nothing about frame rate. The 60 fps target on a real phone
-GPU is unverified.
+## Documentation
 
-## Brand
+| Document | Covers |
+| --- | --- |
+| `unity/docs/BREAKPOINT_UNITY_MIGRATION.md` | Why Unity, what it owns, the port, parity tolerances, test status, defects found |
+| `unity/docs/BREAKPOINT_VISUAL_STYLE.md` | Visual specification from the approved art-direction reference |
+| `unity/docs/BREAKPOINT_VISUAL_ASSET_MANIFEST.md` | Every production asset still required |
+| `docs/REPOSITORY_LAYOUT.md` | Why this repository is shaped the way it is |
+| `reference/threejs-phase1/README.md` | The Phase 1 implementation's own record |
 
-BREAKPOINT carries Dragon Phoenix Ascension DNA under a pool game, not over it.
+---
 
-What is applied, all from the DPA Brand Bible §5:
+## Status
 
-- **Palette** — Void Black, Carbon, Ember Orange, Rebirth Gold, Signal Cyan,
-  Ghost White, Steel, in `src/config/brand.ts`. Nothing else hard-codes a hex.
-- **Typography** — a squared geometric sans for display, a monospace for HUD
-  data and labels. No web font is loaded: the game ships zero external assets,
-  and a render-blocking font request is the wrong trade on a phone.
-- **The fire gradient** (Ember → Gold) on the wordmark only. The Bible's own
-  instruction is "use sparingly — minimalism creates power".
-- **A single strong light source**, dark and cinematic, per the imagery
-  direction.
-- **Motion that resolves into place** rather than bouncing.
-- **The start presentation** carries the wordmark, the motto and the DPA
-  attribution, and doubles as the gesture that unlocks audio.
-
-Two deliberate deviations, both documented in `src/config/brand.ts` as
-functional rather than brand choices: the deep-teal cloth and near-black woods,
-because a table has to read as a table; and the standard fifteen ball colours,
-because telling fifteen balls apart at a glance is a hard gameplay requirement
-that three accent colours cannot meet.
-
-**Readability outranks branding.** No brand treatment is applied to the cloth,
-balls, pockets, rails, aiming guides, spin control or power meter.
-
-The DPA dragon, phoenix and monogram are **not** used, and no magma or ember
-effect is applied to the table. Those are reserved decisions.
-
-## Not in Phase 1
-
-Deliberately out of scope, and **not started**:
-
-- the WPA 8-ball rules engine and referee (group assignment, fouls,
-  ball-in-hand, win conditions)
-- an AI opponent or tactical shot search
-- multiplayer, networking, matchmaking, accounts
-- progression, XP, cosmetics, monetisation
-- menus beyond the single start screen
-
-Scratches respot the cue ball behind the head string, which is the minimum that
-keeps the table playable; ball in hand belongs with the rules engine.
-
-The shot record is built to carry the rules engine when it arrives — see
-[Shot records](#shot-records) — but no rule is implemented.
-
-## Known limitations
-
-- Balls never leave the cloth. There are no jumps, masse or curve from an
-  elevated cue: the cue is always horizontal and vertical velocity is projected
-  out at cushion contact. That projection is dissipative, so it cannot create
-  energy, but a genuinely airborne ball is not modelled.
-- Cushion restitution is a constant. Real cushions are noticeably less elastic
-  at high speed.
-- The aiming line is a straight geometric cast. It deliberately ignores curve,
-  throw and spin, so it shows what a player could read off the table rather
-  than the simulated answer.
-- The rack is a fixed eight-ball layout with no randomisation, so every break
-  from the same shot parameters is identical. That is a determinism feature
-  now and will need a seeded jitter once there are rules.
-- No PWA/service worker yet.
-- Frame rate on real hardware is unmeasured; see the validation status above.
-- Simultaneous contacts are solved by relaxation to the inelastic answer and
-  then scaled by (1 + e), which is exact for a symmetric impact but an
-  approximation for a general multi-contact pile-up. A batch that would create
-  energy falls back to sequential resolution, so the no-energy-created
-  guarantee holds either way.
+Phase A of the Unity migration: **complete and verified as far as this
+environment allows.** Phase 2 gameplay — WPA rules, AI, progression,
+cosmetics, multiplayer, monetisation — has not been started.

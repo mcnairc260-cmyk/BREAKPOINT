@@ -80,8 +80,13 @@ export function predictAim(world: PhysicsWorld, angle: number): AimPrediction | 
   const targetDirection = { x: nx / nLen, y: ny / nLen };
   // The cue ball departs along the tangent, perpendicular to the line of
   // centres — the 90-degree rule, which is what a player actually aims with.
+  // Of the two perpendiculars the cue ball takes the one it is already
+  // travelling towards, so the sign comes from which side of the line of
+  // centres the incoming ray passes. This was negated until the Unity port
+  // re-derived it, which made the overlay draw the 90-degree line backwards
+  // down the cue ball's own path.
   const side = Math.sign(dx * targetDirection.y - dy * targetDirection.x) || 1;
-  const cueTangent = { x: -targetDirection.y * side, y: targetDirection.x * side };
+  const cueTangent = { x: targetDirection.y * side, y: -targetDirection.x * side };
 
   return { end, ghost: end, target, targetDirection, cueTangent };
 }
