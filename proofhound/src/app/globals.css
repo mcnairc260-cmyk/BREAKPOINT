@@ -1,0 +1,150 @@
+@import 'tailwindcss';
+
+/*
+ * ProofHound design tokens.
+ *
+ * One committed dark theme — an analysis workstation, not a document. Colour
+ * carries meaning here and is never decorative: brass marks an origin, cyan
+ * marks independence, green/red mark stance, violet marks derivation. Nothing
+ * else is coloured.
+ */
+@theme {
+  --color-void: #06080c;
+  --color-ground: #0a0d13;
+  --color-panel: #0e1219;
+  --color-raised: #141a25;
+  --color-line: #1b2330;
+  --color-line-strong: #2a3546;
+
+  --color-ink: #e9eef6;
+  --color-dim: #98a4b7;
+  --color-faint: #66738a;
+
+  /* Origin / primary source. The colour of the thing everything else copies. */
+  --color-brass: #d8a441;
+  --color-brass-dim: #7a5c22;
+  /* Independence, data, interactive affordances. */
+  --color-signal: #4fc3d9;
+  --color-signal-dim: #1f5a68;
+  /* Stance. */
+  --color-supports: #48b981;
+  --color-contradicts: #e2616b;
+  --color-neutral: #7b8798;
+  /* Derivation — repetition rather than information. */
+  --color-derived: #8f86e8;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --radius-panel: 10px;
+}
+
+* {
+  min-width: 0;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* A faint plotted grid, the way a case-file overlay reads. Purely atmospheric
+     and low enough in contrast that it never competes with data. */
+  background-image:
+    radial-gradient(1100px 620px at 50% -12%, rgba(79, 195, 217, 0.07), transparent 62%),
+    radial-gradient(760px 460px at 88% 4%, rgba(216, 164, 65, 0.05), transparent 60%),
+    linear-gradient(to right, rgba(255, 255, 255, 0.016) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.016) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 56px 56px, 56px 56px;
+  background-attachment: fixed;
+}
+
+/* Focus is always visible and always the same shape. */
+:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+::selection {
+  background: rgba(79, 195, 217, 0.28);
+}
+
+/* Small-caps data labels used throughout the workspace. */
+.ph-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+/* Small supporting text that is NOT a small-caps data label. */
+.ph-note {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-faint);
+}
+
+.ph-panel {
+  background-color: color-mix(in srgb, var(--color-panel) 88%, transparent);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+}
+
+/* Scrollbars inside data panels, so dense tables do not look broken. */
+.ph-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-line-strong) transparent;
+}
+.ph-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.ph-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+@keyframes ph-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.ph-rise {
+  animation: ph-rise 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes ph-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}
+
+.ph-pulse {
+  animation: ph-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
