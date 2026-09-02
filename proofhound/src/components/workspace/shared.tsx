@@ -10,6 +10,7 @@ import type {
 } from '@/core/types';
 import { Badge, type BadgeTone } from '@/components/ui/primitives';
 import { formatPartialDate } from '@/core/pipeline/timeline';
+import { safeExternalUrl } from '@/lib/utils';
 
 /**
  * Display vocabulary shared by every workspace panel.
@@ -103,17 +104,23 @@ export function sourceDate(source: Source): string {
 /** An external link that is only a link when the URL could actually be visited. */
 export function SourceLink({ source }: { source: Source }): React.ReactElement | null {
   if (!source.url) return null;
+  const safe = safeExternalUrl(source.url);
   const unreachable = source.url.includes('.invalid');
-  if (unreachable) {
+  // Anything that is not plain http(s) is shown as text, never as a link: the
+  // URL came from a search provider, and only http(s) is safe to navigate to.
+  if (unreachable || !safe) {
     return (
-      <span className="break-all font-mono text-[11px] text-faint" title="Demonstration URL — cannot resolve">
+      <span
+        className="break-all font-mono text-[11px] text-faint"
+        title={unreachable ? 'Demonstration URL — cannot resolve' : 'Not a linkable http(s) address'}
+      >
         {source.url}
       </span>
     );
   }
   return (
     <a
-      href={source.url}
+      href={safe}
       target="_blank"
       rel="noopener noreferrer nofollow"
       className="break-all font-mono text-[11px] text-signal underline-offset-2 hover:underline"

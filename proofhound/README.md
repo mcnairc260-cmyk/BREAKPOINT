@@ -121,9 +121,13 @@ what it found. There is no percentage, because the pipeline cannot know one.
 
 ## Two ideas worth knowing about
 
-**A source family is a weakly-connected component of the citation graph.** Every
-member ultimately draws on the same origin, so a family counts once however many
-members it has. Independence falls by distance from that origin —
+**A source family is an origin plus everything that descends from it.** It is
+deliberately not a connected component of the citation graph: one aggregator
+citing five independent studies would merge them into a single component, and
+calling that one family would report five separate origins as corroborating
+nothing. Each source is attached to the nearest origin that reaches it, and a
+family counts once however many members it has. Independence falls by distance
+from that origin —
 `0 → 1.0, 1 → 0.45, 2 → 0.25, 3+ → 0.15` — because the first hop is where the
 information is lost and later hops add almost nothing.
 

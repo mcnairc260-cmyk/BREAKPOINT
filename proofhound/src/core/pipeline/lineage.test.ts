@@ -48,14 +48,36 @@ describe('analyzeLineage', () => {
     expect(lineage.families.map((f) => f.originSourceId).sort()).toEqual(['p', 'x']);
   });
 
-  it('merges two roots that share a descendant, because the descendant is not a new origin', () => {
+  it('keeps two roots independent when a single derivative cites both', () => {
+    // Regression: families used to be connected components, so one aggregator
+    // citing two separate origins collapsed them into a single family and the
+    // score reported that nothing corroborated anything else.
     const lineage = analyzeLineage([
       makeSource({ id: 'r1' }),
       makeSource({ id: 'r2' }),
       makeSource({ id: 'child', parentSourceIds: ['r1', 'r2'] }),
     ]);
-    expect(lineage.independentFamilyCount).toBe(1);
-    expect(lineage.families[0]?.memberSourceIds).toHaveLength(3);
+    expect(lineage.independentFamilyCount).toBe(2);
+    expect(lineage.families.map((f) => f.originSourceId).sort()).toEqual(['r1', 'r2']);
+    // The derivative is attached to exactly one origin, and never counts as one.
+    const homes = lineage.families.filter((f) => f.memberSourceIds.includes('child'));
+    expect(homes).toHaveLength(1);
+    expect(lineage.depthBySourceId.child).toBe(1);
+  });
+
+  it('does not let one roundup erase several independent origins', () => {
+    const sources = [
+      ...Array.from({ length: 5 }, (_, i) => makeSource({ id: `study${i}`, sourceType: 'peer_reviewed' })),
+      makeSource({
+        id: 'roundup',
+        sourceType: 'aggregator',
+        parentSourceIds: ['study0', 'study1', 'study2', 'study3', 'study4'],
+      }),
+    ];
+    const lineage = analyzeLineage(sources);
+    expect(lineage.independentFamilyCount).toBe(5);
+    expect(lineage.depthBySourceId.roundup).toBe(1);
+    for (let i = 0; i < 5; i += 1) expect(lineage.depthBySourceId[`study${i}`]).toBe(0);
   });
 
   it('detects a citation loop and still produces an origin', () => {
@@ -163,5 +185,56 @@ describe('family labels', () => {
   it('uses the publisher when it is unambiguous', () => {
     const lineage = analyzeLineage([makeSource({ id: 'a', publisher: 'Journal of X', title: 'Some title' })]);
     expect(lineage.families[0]?.label).toBe('Journal of X');
+  });
+});
+
+describe('families partition the sources', () => {
+  it('places every source in exactly one family, whatever the graph shape', () => {
+    const shapes: Array<{ name: string; sources: ReturnType<typeof makeSource>[] }> = [
+      {
+        name: 'chain + isolated + diamond + pure cycle',
+        sources: [
+          makeSource({ id: 'root' }),
+          makeSource({ id: 'mid', parentSourceIds: ['root'] }),
+          makeSource({ id: 'leaf', parentSourceIds: ['mid'] }),
+          makeSource({ id: 'alone' }),
+          makeSource({ id: 'd1' }),
+          makeSource({ id: 'd2' }),
+          makeSource({ id: 'dmerge', parentSourceIds: ['d1', 'd2'] }),
+          makeSource({ id: 'cyc1', parentSourceIds: ['cyc2'] }),
+          makeSource({ id: 'cyc2', parentSourceIds: ['cyc1'] }),
+        ],
+      },
+      {
+        name: 'root feeding a cycle',
+        sources: [
+          makeSource({ id: 'r' }),
+          makeSource({ id: 'a', parentSourceIds: ['r', 'b'] }),
+          makeSource({ id: 'b', parentSourceIds: ['a'] }),
+        ],
+      },
+    ];
+
+    for (const shape of shapes) {
+      const lineage = analyzeLineage(shape.sources);
+      const seen = shape.sources.map((s) => lineage.families.filter((f) => f.memberSourceIds.includes(s.id)).length);
+      expect(seen, `${shape.name}: every source in exactly one family`).toEqual(shape.sources.map(() => 1));
+      // Every source is also given a depth, so independence is never undefined.
+      for (const source of shape.sources) {
+        expect(lineage.depthBySourceId[source.id], `${shape.name}: ${source.id} has a depth`).toBeTypeOf('number');
+      }
+    }
+  });
+
+  it('still reports a loop that straddles two families', () => {
+    // r1 -> a, r2 -> b, and a <-> b form a loop across the two lineages.
+    const lineage = analyzeLineage([
+      makeSource({ id: 'r1' }),
+      makeSource({ id: 'r2' }),
+      makeSource({ id: 'a', parentSourceIds: ['r1', 'b'] }),
+      makeSource({ id: 'b', parentSourceIds: ['r2', 'a'] }),
+    ]);
+    expect(lineage.circularCitationCount).toBe(1);
+    expect(lineage.families.some((f) => f.circular)).toBe(true);
   });
 });

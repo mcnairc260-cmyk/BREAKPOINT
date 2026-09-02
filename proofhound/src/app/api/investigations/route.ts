@@ -64,8 +64,11 @@ export async function POST(request: Request): Promise<Response> {
         await getStore().save(investigation);
         send('done', { id: investigation.id });
       } catch (error) {
+        // The raw message can carry server paths, provider URLs or key-shaped
+        // fragments, so it is logged here and never sent to the browser.
+        console.error('[proofhound] investigation failed', error);
         send('error', {
-          message: error instanceof Error ? error.message : 'The investigation failed to run.',
+          message: 'The investigation failed to run. See the server log for details.',
         });
       } finally {
         controller.close();

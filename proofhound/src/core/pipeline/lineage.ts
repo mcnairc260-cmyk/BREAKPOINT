@@ -7,9 +7,14 @@ import type { LineageAnalysis, Source, SourceFamily } from '@/core/types';
  * wearing twelve hats. This module takes the citation graph produced by
  * citation extraction and answers "how many *independent* origins are there?"
  *
- * A **source family** is a weakly-connected component of the citation graph.
- * Every member of a family ultimately draws on the same origin, so a family
- * counts once, no matter how many members it has.
+ * A **source family** is an origin plus everything that descends from it. Every
+ * member of a family ultimately draws on that one origin, so a family counts
+ * once, no matter how many members it has.
+ *
+ * A family is deliberately *not* a connected component of the citation graph.
+ * One aggregator citing five independent studies makes those studies one
+ * component, and reporting that as a single family would say five separate
+ * origins corroborate nothing — the precise opposite of what happened.
  */
 
 /** Document kinds that can hold first-hand material rather than relay it. */
@@ -87,35 +92,50 @@ class DisjointSet {
   }
 }
 
-/** True when the directed citation graph contains a cycle among `members`. */
-function hasCycle(members: string[], children: Map<string, string[]>): boolean {
+/**
+ * The nodes that lie on a citation cycle within `members`.
+ *
+ * Returns the participating nodes rather than a boolean because families are
+ * split by origin below: a loop can straddle two families, and a per-family
+ * boolean would miss it.
+ */
+function nodesOnCycles(members: string[], children: Map<string, string[]>): Set<string> {
   const scope = new Set(members);
   const state = new Map<string, 0 | 1 | 2>();
-  const visit = (id: string): boolean => {
-    const current = state.get(id) ?? 0;
-    if (current === 1) return true;
-    if (current === 2) return false;
+  const stack: string[] = [];
+  const onCycle = new Set<string>();
+
+  const visit = (id: string): void => {
     state.set(id, 1);
+    stack.push(id);
     for (const child of children.get(id) ?? []) {
-      if (scope.has(child) && visit(child)) return true;
+      if (!scope.has(child)) continue;
+      const childState = state.get(child) ?? 0;
+      if (childState === 1) {
+        // Back edge: everything from `child` to the top of the stack is on a loop.
+        const from = stack.lastIndexOf(child);
+        if (from >= 0) for (const node of stack.slice(from)) onCycle.add(node);
+      } else if (childState === 0) {
+        visit(child);
+      }
     }
+    stack.pop();
     state.set(id, 2);
-    return false;
   };
-  return members.some((id) => visit(id));
+
+  for (const id of members) if ((state.get(id) ?? 0) === 0) visit(id);
+  return onCycle;
 }
 
 /**
- * Pick the family's origin.
+ * Ordering used wherever an origin has to be picked.
  *
- * Preference order: a root (no parents) that can hold first-hand material, then
- * any root, then — for a fully circular family with no root — the earliest-dated
- * member, so the family still has something to hang the lineage on.
+ * Prefer a source that can hold first-hand material, then the earliest-dated,
+ * then the id — so the choice is deterministic rather than input-order
+ * dependent.
  */
-function chooseOrigin(members: string[], byId: Map<string, Source>, parents: Map<string, string[]>): string {
-  const roots = members.filter((id) => (parents.get(id) ?? []).length === 0);
-  const pool = roots.length > 0 ? roots : members;
-  const sorted = [...pool].sort((a, b) => {
+function byOriginPreference(byId: Map<string, Source>) {
+  return (a: string, b: string): number => {
     const sa = byId.get(a);
     const sb = byId.get(b);
     const directA = sa && DIRECT_EVIDENCE_TYPES.has(sa.sourceType) ? 0 : 1;
@@ -125,13 +145,31 @@ function chooseOrigin(members: string[], byId: Map<string, Source>, parents: Map
     const dateB = sb?.publicationDate ?? '9999';
     if (dateA !== dateB) return dateA < dateB ? -1 : 1;
     return a.localeCompare(b);
-  });
-  return sorted[0] as string;
+  };
 }
 
-/** Shortest number of citation hops from an origin to every member. */
-function depthsFromOrigin(origin: string, members: string[], children: Map<string, string[]>): Map<string, number> {
+/**
+ * Pick an origin for a set of members that has no root of its own — a fully
+ * circular family. Falls back to the earliest-dated member so the family still
+ * has something to hang its lineage on.
+ */
+function chooseOrigin(members: string[], byId: Map<string, Source>, parents: Map<string, string[]>): string {
+  const roots = members.filter((id) => (parents.get(id) ?? []).length === 0);
+  const pool = roots.length > 0 ? roots : members;
+  return [...pool].sort(byOriginPreference(byId))[0] as string;
+}
+
+/**
+ * Shortest number of citation hops from `origin` to each member it can reach.
+ *
+ * Members the origin cannot reach are absent from the result rather than
+ * defaulted to zero: not being downstream of an origin is what makes a source
+ * an origin of its own, and silently filing it under someone else's lineage is
+ * how independent sources disappear.
+ */
+function depthsFrom(origin: string, members: string[], children: Map<string, string[]>): Map<string, number> {
   const scope = new Set(members);
+  if (!scope.has(origin)) return new Map();
   const depth = new Map<string, number>([[origin, 0]]);
   const queue: string[] = [origin];
   while (queue.length > 0) {
@@ -143,11 +181,6 @@ function depthsFromOrigin(origin: string, members: string[], children: Map<strin
       queue.push(child);
     }
   }
-  // Members not reachable downstream from the origin (e.g. a sibling root inside
-  // a family merged by a shared descendant) still belong to the family. Treat
-  // them as depth 0: they are their own origin, they simply are not independent
-  // of the family as a whole.
-  for (const id of members) if (!depth.has(id)) depth.set(id, 0);
   return depth;
 }
 
@@ -194,31 +227,64 @@ export function analyzeLineage(sources: Source[]): LineageAnalysis {
 
   const components = [...grouped.values()].sort((a, b) => b.length - a.length);
   for (const members of components) {
-    const origin = chooseOrigin(members, byId, graph.parents);
-    const depths = depthsFromOrigin(origin, members, graph.children);
-    let maxDepth = 0;
-    for (const id of members) {
-      const d = depths.get(id) ?? 0;
-      depthBySourceId[id] = d;
-      if (d > maxDepth) maxDepth = d;
-    }
-    const circular = hasCycle(members, graph.children);
-    if (circular) circularCitationCount += 1;
+    const onCycle = nodesOnCycles(members, graph.children);
+    if (onCycle.size > 0) circularCitationCount += 1;
 
-    families.push({
-      id: `family_${origin}`,
-      originSourceId: origin,
-      label: labelFor(byId.get(origin), origin),
-      memberSourceIds: [...members].sort(
-        (a, b) => (depths.get(a) ?? 0) - (depths.get(b) ?? 0) || a.localeCompare(b),
-      ),
-      depth: maxDepth,
-      circular,
-      carriesDirectEvidence: members.some((id) => {
-        const source = byId.get(id);
-        return Boolean(source && DIRECT_EVIDENCE_TYPES.has(source.sourceType));
-      }),
-    });
+    // A component is not the same thing as an origin. Two genuinely independent
+    // origins get pulled into one component the moment a single aggregator
+    // cites both — and counting components would then report five independent
+    // studies plus one roundup as "one source family, nothing corroborates
+    // anything else", which is the exact opposite of the truth. So families are
+    // built per origin, and each member is attached to the nearest one.
+    const roots = members.filter((id) => (graph.parents.get(id) ?? []).length === 0);
+
+    const assignment = new Map<string, { root: string; depth: number }>();
+    // Roots are walked in preference order and a node is only reassigned to a
+    // strictly closer root, so ties settle on the preferred origin and the
+    // result does not depend on input ordering.
+    for (const root of [...roots].sort(byOriginPreference(byId))) {
+      for (const [id, depth] of depthsFrom(root, members, graph.children)) {
+        const current = assignment.get(id);
+        if (!current || depth < current.depth) assignment.set(id, { root, depth });
+      }
+    }
+
+    // Anything a root cannot reach sits inside a loop that no origin feeds.
+    // Those members still need a family, so they fall back to the earliest
+    // datable member of what is left.
+    const stranded = members.filter((id) => !assignment.has(id));
+    if (stranded.length > 0) {
+      const origin = chooseOrigin(stranded, byId, graph.parents);
+      for (const [id, depth] of depthsFrom(origin, stranded, graph.children)) {
+        if (!assignment.has(id)) assignment.set(id, { root: origin, depth });
+      }
+      for (const id of stranded) if (!assignment.has(id)) assignment.set(id, { root: origin, depth: 0 });
+    }
+
+    const byRoot = new Map<string, string[]>();
+    for (const [id, { root, depth }] of assignment) {
+      depthBySourceId[id] = depth;
+      const bucket = byRoot.get(root);
+      if (bucket) bucket.push(id);
+      else byRoot.set(root, [id]);
+    }
+
+    for (const [origin, familyMembers] of byRoot) {
+      families.push({
+        id: `family_${origin}`,
+        originSourceId: origin,
+        label: labelFor(byId.get(origin), origin),
+        memberSourceIds: [...familyMembers].sort(
+          (a, b) => (depthBySourceId[a] ?? 0) - (depthBySourceId[b] ?? 0) || a.localeCompare(b),
+        ),
+        depth: familyMembers.reduce((max, id) => Math.max(max, depthBySourceId[id] ?? 0), 0),
+        circular: familyMembers.some((id) => onCycle.has(id)),
+        carriesDirectEvidence: familyMembers.some((id) => {
+          const source = byId.get(id);
+          return Boolean(source && DIRECT_EVIDENCE_TYPES.has(source.sourceType));
+        }),
+      });
+    }
   }
 
   // Two families can share a publisher — a journal that published both the

@@ -16,7 +16,13 @@ export interface InvestigationStore {
   delete(id: string): Promise<void>;
 }
 
-/** The subset the history list needs — never load full investigations to list them. */
+/**
+ * The subset the history list needs.
+ *
+ * The file store still reads each document to build these rows; the point of
+ * the row type is that callers of `list` never receive whole investigations,
+ * so a store backed by a real database can satisfy it with one projection.
+ */
 export interface InvestigationSummaryRow {
   id: string;
   createdAt: string;

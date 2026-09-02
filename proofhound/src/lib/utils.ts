@@ -14,3 +14,21 @@ export function humanize(value: string): string {
 export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
+
+/**
+ * The URL if it is safe to put in an `href`, otherwise null.
+ *
+ * Source URLs arrive from search providers, which are outside our trust
+ * boundary. React blocks `javascript:` but renders `data:` and `vbscript:`
+ * verbatim, so a hostile or compromised provider could hand us a link that
+ * navigates to attacker-controlled markup. Only http(s) is ever linkable.
+ */
+export function safeExternalUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? url : null;
+  } catch {
+    return null;
+  }
+}
