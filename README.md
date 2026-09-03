@@ -80,12 +80,25 @@ npx tsx unity/tools/parity/generate-fixtures.mts
 
 ## Opening the Unity project
 
-Unity **6000.0.23f1**. Open `unity/`, then
+Unity **6000.0.23f1**. Install it via Unity Hub and activate a licence — batch
+mode needs one too — then, from the repository root:
+
+```sh
+unity/tools/unity-verify.sh
+```
+
+That applies the four required project settings, compiles, and runs EditMode
+and PlayMode headlessly, printing a per-test summary. Set `UNITY=/path/to/Unity`
+if it is not in a standard Hub location. Logs land in `unity/tools/unity-logs/`.
+
+To work in the editor instead, open `unity/` and run **BREAKPOINT ▸ Apply
+project setup** once, then open
 `Assets/BREAKPOINT/Scenes/Breakpoint.unity`.
 
-Four settings must be applied on first open — they are listed in
-`unity/docs/BREAKPOINT_UNITY_MIGRATION.md` §9 rather than committed, because
-hand-writing `ProjectSettings.asset` blind risks a project that will not open.
+The four settings the script applies are documented in
+`unity/docs/BREAKPOINT_UNITY_MIGRATION.md` §9. They are applied as code rather
+than committed because hand-writing `ProjectSettings.asset` blind risks a
+project that will not open at all.
 
 **Nothing in `unity/` has ever been compiled by Unity or rendered.** That is
 stated plainly in the migration document's test-status section, and it is the

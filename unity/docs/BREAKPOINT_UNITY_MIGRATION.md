@@ -358,8 +358,12 @@ this bug present.
 
 ## 9. Editor setup required on first open
 
-These cannot be set from here without Unity, and are listed rather than
-guessed at:
+`Assets/BREAKPOINT/Editor/BreakpointProjectSetup.cs` applies all of these, as
+code rather than as committed settings files. Run it headlessly with
+`unity/tools/unity-verify.sh`, or from the editor menu under
+**BREAKPOINT ▸ Apply project setup**.
+
+The settings themselves, for the record:
 
 1. **Colour space → Linear.** Player Settings → Other Settings. URP's lighting
    model assumes it; in Gamma the low-key look goes muddy.

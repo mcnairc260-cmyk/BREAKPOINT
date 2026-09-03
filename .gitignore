@@ -19,3 +19,6 @@ unity/tools/compile-check/build/
 # OS
 .DS_Store
 Thumbs.db
+
+# Headless Unity run logs and test results
+unity/tools/unity-logs/
