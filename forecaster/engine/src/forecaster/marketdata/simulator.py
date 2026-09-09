@@ -49,7 +49,7 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from forecaster.clock import now_ns  # noqa: F401  (kept for callers passing an explicit start)
+from forecaster.clock import now_ns
 from forecaster.marketdata.provider import MarketEvent, ProviderBase
 from forecaster.types import (
     NS_PER_SECOND,
@@ -434,7 +434,21 @@ class SimulatedProvider(ProviderBase):
 
             ts += dt_ns
             if self.realtime:
-                await asyncio.sleep(dt_s)
+                # Catch up first, then track the clock.
+                #
+                # A forecaster needs half an hour of history before it will say
+                # anything, so a real-time feed starting from scratch is useless
+                # for half an hour. Starting in the past and generating as fast
+                # as possible until the simulated clock reaches now gives the
+                # system its history immediately, and from then on it runs at
+                # true speed. This is exactly how a live system warms up from a
+                # capture before switching to the live feed.
+                behind_ns = now_ns() - ts
+                if behind_ns > 0:
+                    if (ts // dt_ns) % 256 == 0:
+                        await asyncio.sleep(0)
+                else:
+                    await asyncio.sleep(dt_s)
             else:
                 # Yield to the loop periodically so a long generation does not
                 # starve the evaluator or the API in the same process.

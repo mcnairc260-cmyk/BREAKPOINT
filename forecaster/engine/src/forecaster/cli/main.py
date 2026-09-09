@@ -448,12 +448,7 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
     config = load_config()
     state = build_state(config)
-    app = create_app(state)
-
-    @app.on_event("startup")
-    async def _start() -> None:  # pragma: no cover - exercised by running the server
-        state.tasks.append(asyncio.create_task(state.collector.run()))
-        state.tasks.append(asyncio.create_task(state.evaluator.run_forever(interval_s=5.0)))
+    app = create_app(state, run_workers=True)
 
     banner = "LIVE" if config.provider == "live" else config.provider.upper()
     print(f"serving on http://{args.host}:{args.port}  [{banner} data from {config.venue}]")

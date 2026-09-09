@@ -151,9 +151,23 @@ def _persist(app_state: AppState, forecast: Forecast) -> int:
     return prediction_id
 
 
-def create_app(app_state: AppState | None = None) -> FastAPI:
+def create_app(app_state: AppState | None = None, *, run_workers: bool = False) -> FastAPI:
+    """Build the API.
+
+    `run_workers` starts the collector and the evaluator alongside it, inside the
+    lifespan rather than through `on_event`. FastAPI ignores `on_event` handlers
+    entirely when a lifespan is supplied, so a startup hook registered that way
+    never runs — which is exactly what happened the first time this server was
+    launched. It served requests happily, collected no market data at all, and
+    reported `service_level: down` with no error anywhere.
+    """
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        current = STATE
+        if run_workers and current is not None:
+            current.tasks.append(asyncio.create_task(current.collector.run()))
+            current.tasks.append(asyncio.create_task(current.evaluator.run_forever(interval_s=5.0)))
         yield
         current = STATE
         if current is not None:
@@ -399,13 +413,19 @@ def build_state(config: Config | None = None) -> AppState:
     model_repo = ModelRepository(db)
     quality_repo = QualityRepository(db)
 
+    extra: dict[str, Any] = {}
+    if cfg.provider == "simulated":
+        # Start three hours in the past. The simulator generates that history as
+        # fast as it can and then tracks the clock, so the service can forecast
+        # from the moment it starts instead of refusing for the first half hour.
+        extra = {"realtime": True, "start_ns": now_ns() - 3 * 3600 * NS_PER_SECOND}
     provider = build_provider(
         cfg.provider,
         venue=cfg.venue,
         symbols=tuple(cfg.symbols),
         seed=cfg.seed,
         transport=cfg.transport,
-        realtime=cfg.provider == "simulated",
+        **extra,
     )
     collector = Collector(
         provider=provider,

@@ -15,6 +15,28 @@
  */
 import { chromium, devices } from '@playwright/test';
 import { mkdir } from 'node:fs/promises';
+import { existsSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+/**
+ * Find a Chromium to drive.
+ *
+ * Some environments ship a Chromium whose build number does not match the
+ * Playwright package's expectation. Playwright then refuses to launch and tells
+ * you to download another one — which is the wrong answer when a perfectly good
+ * browser is already installed, and impossible where the network is blocked.
+ * So an existing binary is preferred and Playwright's own is the fallback.
+ */
+function findChromium() {
+  if (process.env.CHROMIUM_PATH) return process.env.CHROMIUM_PATH;
+  const root = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (!root || !existsSync(root)) return undefined;
+  const candidates = readdirSync(root)
+    .filter((name) => name.startsWith('chromium-'))
+    .map((name) => join(root, name, 'chrome-linux', 'chrome'))
+    .filter((path) => existsSync(path));
+  return candidates[0];
+}
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3220';
 const OUT = process.env.SHOT_DIR ?? '/tmp/forecaster-shots';
@@ -60,14 +82,27 @@ async function assertNoHorizontalOverflow(page, label) {
   }
 }
 
-async function readNumber(page, selector) {
-  const text = await page.locator(selector).first().textContent();
-  return Number.parseFloat((text ?? '').replace(/[^0-9.]/g, ''));
+/** The ABOVE probability on the first forecast card, as a percentage. */
+async function readAboveProbability(page) {
+  return page.evaluate(() => {
+    for (const el of document.querySelectorAll('div')) {
+      if (el.textContent?.trim() === 'Above') {
+        const value = el.nextElementSibling?.textContent?.trim() ?? '';
+        if (value.startsWith('<')) return 0.5;
+        if (value.startsWith('>')) return 99.5;
+        const parsed = Number.parseFloat(value.replace('%', ''));
+        if (Number.isFinite(parsed)) return parsed;
+      }
+    }
+    return Number.NaN;
+  });
 }
 
 async function run() {
   await mkdir(OUT, { recursive: true });
-  const browser = await chromium.launch();
+  const executablePath = findChromium();
+  if (executablePath) console.log(`using ${executablePath}`);
+  const browser = await chromium.launch(executablePath ? { executablePath } : {});
 
   for (const [label, context] of [
     ['desktop', { viewport: { width: 1280, height: 900 } }],
@@ -109,12 +144,16 @@ async function run() {
     await input.fill((spot * 1.002).toFixed(2));
     await page.getByRole('button', { name: 'Both' }).click();
     await page.getByRole('button', { name: 'Predict' }).click();
-    await page.waitForSelector('text=5 MIN', { timeout: 20_000 });
+    // Wait for the forecast CARD, not the "5 min" horizon button. Playwright's
+    // text engine is case-insensitive, so `text=5 MIN` matches the button too —
+    // which made every check below run before any result had rendered, and
+    // report three failures that were entirely this line's fault.
+    await page.getByRole('heading', { level: 3, name: '5 MIN' }).waitFor({ timeout: 20_000 });
     await assertNoHorizontalOverflow(page, label);
 
-    const cards = await page.locator('text=/^\\d+ MIN$/').count();
+    const cards = await page.getByRole('heading', { level: 3 }).count();
     if (cards < 2) problems.push(`[${label}] expected both horizons, found ${cards}`);
-    else note('both horizons rendered');
+    else note(`both horizons rendered (${cards} cards)`);
 
     const aboveCount = await page.locator('text=Above').count();
     const belowCount = await page.locator('text=Below').count();
@@ -124,9 +163,9 @@ async function run() {
       note('above and below shown on both cards');
     }
 
-    const highTargetProb = await readNumber(page, '.tnum.font-semibold.leading-none');
+    const highTargetProb = await readAboveProbability(page);
 
-    if ((await page.locator('text=/to go/').count()) === 0) {
+    if ((await page.getByText('to go').count()) === 0) {
       problems.push(`[${label}] no countdown to expiry`);
     } else {
       note('countdown to expiry is running');
@@ -142,7 +181,7 @@ async function run() {
     await input.fill((spot * 0.998).toFixed(2));
     await page.getByRole('button', { name: 'Predict' }).click();
     await page.waitForTimeout(1500);
-    const lowTargetProb = await readNumber(page, '.tnum.font-semibold.leading-none');
+    const lowTargetProb = await readAboveProbability(page);
 
     if (Number.isFinite(highTargetProb) && Number.isFinite(lowTargetProb)) {
       if (!(lowTargetProb > highTargetProb)) {

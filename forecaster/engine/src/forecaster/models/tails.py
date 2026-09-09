@@ -33,12 +33,13 @@ from typing import Any
 import numpy as np
 from scipy import stats
 
+from forecaster.types import PROB_FLOOR as PROB_FLOOR  # re-exported for the model layer
+
 # Below this many pooled residuals, the empirical shape is noise and Student-t
 # is used instead. Pooled across all times and both directions, so it fills far
 # faster than any per-bucket estimate ever could.
 MIN_RESIDUALS = 2_000
 
-from forecaster.types import PROB_FLOOR as PROB_FLOOR  # re-exported for the model layer
 
 
 @dataclass(frozen=True)

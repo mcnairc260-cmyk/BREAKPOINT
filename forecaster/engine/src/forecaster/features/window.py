@@ -23,6 +23,7 @@ reached this process yet was not available, whatever the venue's clock says.
 
 from __future__ import annotations
 
+import threading
 from bisect import bisect_left, bisect_right
 from collections import deque
 from dataclasses import dataclass, field
@@ -122,6 +123,17 @@ class MarketWindow:
                 )
 
 
+def _latest_book(books: list[BookSnapshot], as_of_ns: int) -> BookSnapshot | None:
+    """The newest book at or before the cutoff."""
+    latest: BookSnapshot | None = None
+    for book in books:
+        if book.received_ns <= as_of_ns:
+            latest = book
+        else:
+            break
+    return latest
+
+
 # Retention is set by the longest feature lookback (one hour) plus headroom.
 # Keeping more would cost memory for nothing; keeping less would silently
 # truncate the slowest volatility component and make it quietly wrong.
@@ -134,6 +146,14 @@ class RollingWindowSource:
 
     Bounded by time rather than by count, so a quiet market keeps its full hour
     of context instead of ageing out after N events.
+
+    **Guarded by a lock.** The collector appends from the event loop while
+    request handlers read from FastAPI's worker threads, and those are genuinely
+    concurrent. Without the lock this raised `RuntimeError: deque mutated during
+    iteration` under load — intermittently, as a 500, on a request that looked
+    fine a moment earlier. It was found by the browser verification rather than
+    by any unit test, because it only appears when something is reading and
+    writing at the same time.
     """
 
     symbol: str
@@ -145,27 +165,32 @@ class RollingWindowSource:
     _bars_1s: deque[Bar] = field(default_factory=deque)
     _bars_60s: deque[Bar] = field(default_factory=deque)
     _books: deque[BookSnapshot] = field(default_factory=deque)
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
     def add_trade(self, trade: Trade) -> None:
-        self._trades.append(trade)
-        self._evict(trade.received_ns)
+        with self._lock:
+            self._trades.append(trade)
+            self._evict(trade.received_ns)
 
     def add_quote(self, quote: Quote) -> None:
-        self._quotes.append(quote)
-        self._evict(quote.received_ns)
+        with self._lock:
+            self._quotes.append(quote)
+            self._evict(quote.received_ns)
 
     def add_book(self, book: BookSnapshot) -> None:
         # A deque, not a single value. Keeping only the newest snapshot meant a
         # window built for an earlier instant found no book and quietly dropped
         # both order-book features — the kind of gap that shows up as a model
         # performing worse in production than in training, with no error anywhere.
-        self._books.append(book)
+        with self._lock:
+            self._books.append(book)
 
     def add_bar(self, bar: Bar) -> None:
-        if bar.resolution_s == 1:
-            self._bars_1s.append(bar)
-        elif bar.resolution_s == 60:
-            self._bars_60s.append(bar)
+        with self._lock:
+            if bar.resolution_s == 1:
+                self._bars_1s.append(bar)
+            elif bar.resolution_s == 60:
+                self._bars_60s.append(bar)
 
     def _evict(self, now_ns: int) -> None:
         cutoff = now_ns - self.retention_ns
@@ -181,30 +206,31 @@ class RollingWindowSource:
             self._books.popleft()
 
     def window(self, as_of_ns: int) -> MarketWindow:
+        # Snapshot everything under the lock, then filter outside it. Holding the
+        # lock across the filtering would block the collector for as long as a
+        # window takes to build; copying four references does not.
+        with self._lock:
+            bars_1s = list(self._bars_1s)
+            bars_60s = list(self._bars_60s)
+            trades = list(self._trades)
+            quotes = list(self._quotes)
+            books = list(self._books)
+
         return MarketWindow(
             symbol=self.symbol,
             as_of_ns=as_of_ns,
             bars_1s=tuple(
-                b for b in self._bars_1s if b.open_ns + b.resolution_s * NS_PER_SECOND <= as_of_ns
+                b for b in bars_1s if b.open_ns + b.resolution_s * NS_PER_SECOND <= as_of_ns
             ),
             bars_60s=tuple(
-                b for b in self._bars_60s if b.open_ns + b.resolution_s * NS_PER_SECOND <= as_of_ns
+                b for b in bars_60s if b.open_ns + b.resolution_s * NS_PER_SECOND <= as_of_ns
             ),
-            trades=tuple(t for t in self._trades if t.received_ns <= as_of_ns),
-            quotes=tuple(q for q in self._quotes if q.received_ns <= as_of_ns),
-            book=self._latest_book(as_of_ns),
+            trades=tuple(t for t in trades if t.received_ns <= as_of_ns),
+            quotes=tuple(q for q in quotes if q.received_ns <= as_of_ns),
+            book=_latest_book(books, as_of_ns),
             data_source=self.data_source,
             venue=self.venue,
         )
-
-    def _latest_book(self, as_of_ns: int) -> BookSnapshot | None:
-        latest: BookSnapshot | None = None
-        for book in self._books:
-            if book.received_ns <= as_of_ns:
-                latest = book
-            else:
-                break
-        return latest
 
 
 @dataclass

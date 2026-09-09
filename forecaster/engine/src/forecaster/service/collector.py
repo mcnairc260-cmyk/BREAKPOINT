@@ -17,6 +17,7 @@ a far smaller problem than a collector that cannot keep up with the feed.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 
 from forecaster.clock import now_ns
@@ -97,6 +98,11 @@ class Collector:
             )
             for symbol in symbols
         }
+        # The aggregator is touched from two places at once: the collector
+        # coroutine on the event loop, and request handlers on FastAPI's worker
+        # threads when they seal bars to build a window. Same class of race as
+        # the rolling window, same fix.
+        self._aggregator_lock = threading.Lock()
         self._trade_buffer: list[Trade] = []
         self._quote_buffer: list[Quote] = []
         self._bar_buffer: list[Bar] = []
@@ -115,7 +121,9 @@ class Collector:
         and leaving that to trade arrival makes the window depend on how busy the
         market happened to be rather than on what time it is.
         """
-        for bar in self.aggregator.seal_through(as_of_ns):
+        with self._aggregator_lock:
+            sealed = self.aggregator.seal_through(as_of_ns)
+        for bar in sealed:
             self._bar_buffer.append(bar)
             self.windows[bar.symbol].add_bar(bar)
             self.stats.bars += 1
@@ -148,7 +156,9 @@ class Collector:
             self.stats.trades += 1
             self._trade_buffer.append(event)
             self.windows[event.symbol].add_trade(event)
-            for bar in self.aggregator.add(event):
+            with self._aggregator_lock:
+                completed = self.aggregator.add(event)
+            for bar in completed:
                 self._bar_buffer.append(bar)
                 self.windows[event.symbol].add_bar(bar)
                 self.stats.bars += 1
@@ -221,7 +231,9 @@ class Collector:
                 if not self._running:
                     break
         finally:
-            for bar in self.aggregator.flush_all():
+            with self._aggregator_lock:
+                remaining = self.aggregator.flush_all()
+            for bar in remaining:
                 self._bar_buffer.append(bar)
             self.flush(force=True)
             self._running = False

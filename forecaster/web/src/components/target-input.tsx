@@ -79,8 +79,10 @@ export function TargetInput({
         />
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <div className="flex gap-1.5">
+      {/* Wraps on a narrow screen. Side by side, the nudge buttons and the
+          distance readout came to more than a 390px viewport allows. */}
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-2">
+        <div className="flex flex-wrap gap-1.5">
           {NUDGES.map((percent) => (
             <button
               key={percent}
@@ -97,7 +99,7 @@ export function TargetInput({
         {distance ? (
           <div
             className={cx(
-              'tnum text-right text-[12px]',
+              'tnum ml-auto text-right text-[12px] whitespace-nowrap',
               distance.absolute > 0 ? 'text-above' : distance.absolute < 0 ? 'text-below' : 'text-muted',
             )}
           >
