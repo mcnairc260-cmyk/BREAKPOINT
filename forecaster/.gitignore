@@ -20,8 +20,13 @@ artifacts/
 *.ndjson.gz
 
 # Reports
-reports/
+#
+# Generated reports are committed, deliberately. They are small, and they are
+# the evidence behind the claims in VALIDATION.md — a reader should be able to
+# check the numbers rather than take the prose on trust. Only ad-hoc ones are
+# ignored.
 *.report.json
+reports/tmp/
 
 # Node (see web/.gitignore for the rest)
 node_modules/
