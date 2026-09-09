@@ -7,9 +7,13 @@ reach any exchange, so every venue adapter here is tested against fixtures
 written from published API documentation. Fixtures prove the parsing. Only this
 proves the connection.
 
-    python scripts/smoke_live.py                       # Coinbase, WebSocket
-    python scripts/smoke_live.py --venue kraken
-    python scripts/smoke_live.py --transport poll      # where WebSockets are blocked
+    make smoke                                    # Coinbase, WebSocket
+    make smoke ARGS="--venue kraken"
+    make smoke ARGS="--transport poll"            # where WebSockets are blocked
+
+Run it through make, or with the project's own interpreter
+(`engine/.venv/bin/python scripts/smoke_live.py`). A bare `python` almost
+certainly lacks `httpx` and `websockets` and will fail on import.
 
 It reports what it actually saw — prices, spreads, trade counts, whether the
 aggressor side was published — and it says plainly when something looks wrong.
@@ -20,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import logging
 import sys
 from collections import Counter
 from pathlib import Path
@@ -32,6 +37,32 @@ from forecaster.types import NS_PER_SECOND, BookSnapshot, Quote, Side, Trade  # 
 
 
 async def smoke(venue: str, transport: str, symbols: tuple[str, ...], seconds: float) -> int:
+    # The websockets library logs a full traceback to stderr for every failed
+    # handshake. During a reconnect loop against a blocked host that is six
+    # tracebacks of noise wrapped around one useful line, and it buries the
+    # diagnosis this script exists to print. The provider records the error and
+    # this script reports it, so the library's own logging adds nothing.
+    logging.getLogger("websockets").setLevel(logging.CRITICAL)
+    logging.getLogger("websockets.client").setLevel(logging.CRITICAL)
+
+    # A failed handshake also leaves unretrieved exceptions on internal tasks,
+    # which asyncio prints itself — once per reconnect attempt. They are counted
+    # rather than printed: nothing is hidden (the total is reported at the end),
+    # but six copies of a library's internal error must not bury the one line
+    # that says what is actually wrong.
+    background: Counter[str] = Counter()
+
+    def _collect(_loop: object, context: dict[str, object]) -> None:
+        exception = context.get("exception")
+        label = (
+            f"{type(exception).__name__}: {exception}"
+            if exception is not None
+            else str(context.get("message", "unknown"))
+        )
+        background[label] += 1
+
+    asyncio.get_running_loop().set_exception_handler(_collect)
+
     provider = build_provider(
         "live", venue=venue, symbols=symbols, transport=transport
     )
@@ -74,8 +105,15 @@ async def smoke(venue: str, transport: str, symbols: tuple[str, ...], seconds: f
         print(f"  reconnect attempts: {provider.health.reconnects}")
         if provider.health.last_error:
             print(f"  last error: {provider.health.last_error}")
-        print("\nIf the host is blocked by a firewall or proxy, try --transport poll,")
-        print("or run this from a network that permits outbound connections to the venue.")
+        print()
+        if transport == "websocket":
+            print("If a firewall or proxy blocks WebSocket upgrades, try --transport poll.")
+            print("Otherwise run this from a network that allows outbound connections")
+            print(f"to {venue}.")
+        else:
+            print(f"Polling is blocked too, so this is not a WebSocket problem — {venue}")
+            print("is unreachable from this network. Try another venue (--venue kraken)")
+            print("or run this where outbound connections are permitted.")
         await provider.close()
         return 1
     except Exception as exc:  # noqa: BLE001 - the whole point is to report failures
@@ -131,6 +169,12 @@ async def smoke(venue: str, transport: str, symbols: tuple[str, ...], seconds: f
                 f"median latency of {median_ms:.0f} ms is negative — this machine's clock "
                 "is likely ahead of the venue's"
             )
+
+    if background:
+        print("background errors from the network stack (not necessarily faults):")
+        for label, count in background.most_common(3):
+            print(f"  {count}x {label}")
+        print()
 
     health = provider.health
     if health.reconnects:

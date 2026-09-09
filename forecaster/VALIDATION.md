@@ -270,12 +270,19 @@ The truth is between those bounds, and showing both is the honest way to say so.
 ## 9. How to reproduce every result
 
 ```bash
-cd forecaster/engine
-make verify            # the full offline suite
-forecaster simulate --duration 288000 --regime realistic --anchor-now
-forecaster train --data-source simulated --venue simulator
-forecaster backtest --data-source simulated --venue simulator --json report.json
-forecaster report --data-source simulated
+cd forecaster
+make verify     # lint, types, 132 tests, the offline suite, the web build
+make demo       # simulate 80h -> train -> backtest, about 45 minutes
+```
+
+Or step by step, from `forecaster/engine`, using the project's interpreter:
+
+```bash
+.venv/bin/forecaster simulate --duration 288000 --regime realistic --anchor-now
+.venv/bin/forecaster train    --data-source simulated --venue simulator
+.venv/bin/forecaster backtest --data-source simulated --venue simulator \
+    --json ../reports/backtest.json
+.venv/bin/forecaster report   --data-source simulated
 ```
 
 Everything is seeded. The same seed produces the same market, the same training

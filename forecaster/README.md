@@ -50,28 +50,37 @@ whether the price rises; it predicts whether it ends up above *your* number.
 
 ```bash
 cd forecaster
-make setup                    # Python venv + npm install
+make setup     # Python venv + npm install
+make dev       # engine on :8099, interface on :3220 — ctrl-c stops both
+```
 
-# Generate a simulated market, train on it, and see it work end to end
-cd engine
-.venv/bin/forecaster simulate --duration 288000 --regime realistic --anchor-now
-.venv/bin/forecaster train    --data-source simulated --venue simulator
-.venv/bin/forecaster backtest --data-source simulated --venue simulator
+That is enough to use it: the engine starts on a simulated market, warms itself
+up from the recent past, and forecasts immediately. Everything on screen is
+labelled SIMULATED.
 
-# Run it
-cd .. && make dev             # engine on :8099, interface on :3220
+To run the whole pipeline end to end — generate a market, train, backtest:
+
+```bash
+make demo      # ~45 minutes; writes reports/backtest.json
 ```
 
 To point it at a real exchange, from a machine with ordinary network access:
 
 ```bash
-cd engine
-python scripts/smoke_live.py            # ~30s: proves the adapter works
-FORECASTER_PROVIDER=live FORECASTER_VENUE=coinbase .venv/bin/forecaster serve
+make smoke                                    # ~30s: proves the adapter works
+FORECASTER_PROVIDER=live make serve           # then collect for real
 ```
+
+`make smoke` runs the venue check with the project's own interpreter. Running
+`python scripts/smoke_live.py` directly fails with `ModuleNotFoundError` unless
+your system Python happens to have `httpx` and `websockets` — use the make
+target, or `engine/.venv/bin/python scripts/smoke_live.py`.
 
 No API key is needed. Coinbase's market data is public, which is a large part of
 why it is the default.
+
+Other useful targets: `make verify` (lint, types, tests, offline suite, web
+build), `make test`, `make stop`, `make clean`. `make help` lists them.
 
 ---
 
