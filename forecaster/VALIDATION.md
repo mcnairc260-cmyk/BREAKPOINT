@@ -389,7 +389,7 @@ walk-forward ones above, which is where the learner was rejected.
 
 ### The offline suite
 
-`forecaster verify` — 10 checks, all passing:
+`forecaster verify` — 11 checks, all passing:
 
 | Check | Result |
 |---|---|

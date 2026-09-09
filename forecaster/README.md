@@ -250,6 +250,37 @@ be recovered later.
 
 ---
 
+## What has been measured
+
+On 80 hours of simulated market (2.9M trades, seed 4242). Full detail and
+caveats in [`VALIDATION.md`](VALIDATION.md).
+
+| | 5 min | 20 min |
+|---|---|---|
+| Independent observations | 947 | 236 |
+| Baseline Brier | 0.13529 | 0.12640 |
+| Baseline calibration error | 0.00441 | 0.00012 |
+| Learner trained? | yes | **no** — 236 < 750 |
+| Learner promoted? | **no** — significantly worse | — |
+
+The learner was trained at 5 minutes and **rejected**: Brier 0.1395 against the
+baseline's 0.1353, with a 95% interval of −0.0061 to −0.0022 that sits entirely
+below zero. That is the correct outcome. The simulator's realistic regime
+contains no directional predictability by construction, so a learner beating the
+baseline there would have found something that is not there.
+
+`forecaster verify` passes 11 checks including the null-alpha gate: on a
+martingale the best learner skill over the baseline is −0.078, well under the
++0.02 that would indicate a leak.
+
+132 Python tests, 20 web tests, 18 browser checks across desktop and iPhone
+viewports. `ruff` and `mypy --strict` clean across 57 source files.
+
+**None of this is evidence about real markets.** It is evidence the pipeline is
+correct.
+
+---
+
 ## Limitations
 
 1. **No real-market validation.** The largest limitation by a distance.
