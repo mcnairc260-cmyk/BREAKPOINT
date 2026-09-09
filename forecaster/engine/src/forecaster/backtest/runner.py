@@ -25,6 +25,7 @@ import numpy as np
 
 from forecaster.clock import now_ns
 from forecaster.config import Config
+from forecaster.features.compute import compute_features
 from forecaster.features.window import CachedWindowSource
 from forecaster.labels.resolve import label_from_price
 from forecaster.service.engine import ForecastEngine, ForecastRefused
@@ -109,6 +110,23 @@ def run_backtest(
         trade = market_repo.last_trade_at_or_before(symbol, ns, source=data_source, venue=venue)
         return trade.price if trade is not None else None
 
+    # A backtest over the same period a model was fitted on is in-sample, and
+    # the resulting calibration will look better than it deserves to. The
+    # walk-forward validation inside training refits everything per fold and is
+    # clean; this standalone command is not, unless the caller has chosen a
+    # window the artifact never saw. Rather than quietly producing a flattering
+    # number, it says so.
+    overlap_warnings: list[str] = []
+    for artifact in engine.artifacts.values():
+        if artifact.symbol != symbol:
+            continue
+        if artifact.train_start_ns < end_ns and artifact.train_end_ns > start_ns:
+            overlap_warnings.append(
+                f"model {artifact.version} was fitted on data overlapping this backtest "
+                "window, so these figures are IN-SAMPLE and will flatter it — the "
+                "walk-forward results in the training report are the out-of-sample ones"
+            )
+
     records: list[dict[str, Any]] = []
     refused = 0
     unresolved = 0
@@ -123,30 +141,40 @@ def run_backtest(
             continue
         spot = window.spot
 
+        # Features are computed once for this instant and shared across every
+        # horizon and every target. They are identical across targets by
+        # definition — they describe the market, not the question — and
+        # recomputing them per target made this job take an hour instead of
+        # minutes for exactly the same numbers.
+        features = compute_features(window, validate=False)
+
         for horizon_s in horizons_s:
             future_price = price_at(as_of + horizon_s * NS_PER_SECOND)
             if future_price is None:
                 unresolved += 1
                 continue
-            for z_target in z_targets:
-                # The target is set in volatility units so the difficulty of the
-                # question is comparable across quiet and violent periods. A
+            try:
+                # One probe to learn this instant's volatility, so the targets
+                # can be placed in standard deviations rather than dollars. A
                 # fixed dollar grid would make the backtest mostly a report on
-                # which days were calm.
-                try:
-                    probe = engine.forecast(
-                        window=window,
-                        target=spot,
-                        horizon_s=horizon_s,
-                        service_level=ServiceLevel.FULL,
-                        feed_age_ns=0,
-                        now_ns=as_of,
-                        prediction_mode=PredictionMode.BACKFILL,
-                    )
-                except ForecastRefused:
-                    refused += 1
-                    break
-                target = spot * float(np.exp(z_target * probe.sigma))
+                # which hours happened to be calm.
+                probe = engine.forecast(
+                    window=window,
+                    target=spot,
+                    horizon_s=horizon_s,
+                    service_level=ServiceLevel.FULL,
+                    feed_age_ns=0,
+                    now_ns=as_of,
+                    prediction_mode=PredictionMode.BACKFILL,
+                    features=features,
+                )
+            except ForecastRefused:
+                refused += 1
+                continue
+
+            targets = [spot * float(np.exp(z * probe.sigma)) for z in z_targets]
+            baseline = engine.baseline_distribution(window, horizon_s)
+            for z_target, target in zip(z_targets, targets, strict=True):
                 try:
                     forecast = engine.forecast(
                         window=window,
@@ -156,15 +184,12 @@ def run_backtest(
                         feed_age_ns=0,
                         now_ns=as_of,
                         prediction_mode=PredictionMode.BACKFILL,
+                        features=features,
                     )
                 except ForecastRefused:
                     refused += 1
                     continue
 
-                outcome = 1.0 if label_from_price(future_price, target) else 0.0
-                # The comparison every result is measured against. Without it, a
-                # Brier score is a number with no scale.
-                baseline_p = engine.baseline_probability(window, horizon_s, target)
                 records.append(
                     {
                         "as_of_ns": as_of,
@@ -172,12 +197,13 @@ def run_backtest(
                         "z": forecast.z,
                         "sigma": forecast.sigma,
                         "p_above": forecast.p_above,
-                        "baseline_p": baseline_p,
-                        "label": outcome,
+                        "baseline_p": baseline.prob_above(target),
+                        "label": 1.0 if label_from_price(future_price, target) else 0.0,
                         "spot": spot,
                         "target": target,
                         "future_price": future_price,
                         "confidence": forecast.confidence.value,
+                        "z_target": z_target,
                     }
                 )
                 if persist and prediction_repo is not None:
@@ -185,7 +211,9 @@ def run_backtest(
 
         as_of += step_ns
 
-    return _summarise(records, refused, unresolved, horizons_s, step_s)
+    result = _summarise(records, refused, unresolved, horizons_s, step_s)
+    result.warnings.extend(overlap_warnings)
+    return result
 
 
 def _persist_backfill(repo: PredictionRepository, forecast: Any) -> None:

@@ -241,6 +241,15 @@ def train(
                 f"improved Brier by {delta.point:.5f} with a 95% interval excluding zero, "
                 f"and calibration did not get worse"
             )
+        elif delta.ci_high < 0.0:
+            # Significantly worse, not merely unproven. Worth saying plainly:
+            # a learner that reliably loses to the baseline is a result, and on
+            # data with no directional structure it is the CORRECT result.
+            reason = (
+                f"significantly WORSE than the baseline: Brier changed by "
+                f"{delta.point:+.5f} with a 95% interval of {delta.ci_low:+.5f} to "
+                f"{delta.ci_high:+.5f}, entirely below zero"
+            )
         elif not delta.is_positive:
             reason = (
                 f"improvement of {delta.point:+.5f} is not distinguishable from zero "
@@ -265,7 +274,12 @@ def train(
     serving_p = learner_p if (promoted and learner_p is not None) else baseline_p
     calibration = fit_best_calibrator(serving_p.tolist(), labels.tolist())
     if calibration.calibrator.name == "identity":
-        warnings.append(f"probabilities left uncalibrated: {calibration.chosen_reason}")
+        # "Identity won" and "there was not enough data to try" are different
+        # statements and the warning should not conflate them. The first is a
+        # real finding: the probabilities were already good enough that adjusting
+        # them made things worse on data the calibrator had not seen.
+        detail = getattr(calibration.calibrator, "reason", calibration.chosen_reason)
+        warnings.append(f"probabilities left uncalibrated — {detail}")
 
     novelty = NoveltyModel.fit(dataset.features, FEATURE_NAMES)
     z_max = _calibrated_z_limit(dataset, cfg.z_calibrated_max)

@@ -41,7 +41,6 @@ from forecaster.types import PROB_FLOOR as PROB_FLOOR  # re-exported for the mod
 MIN_RESIDUALS = 2_000
 
 
-
 @dataclass(frozen=True)
 class GPDTail:
     """A generalised Pareto fit to one tail's exceedances."""

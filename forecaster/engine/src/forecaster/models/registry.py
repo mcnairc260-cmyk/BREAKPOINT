@@ -245,7 +245,7 @@ def _model_card(artifact: ModelArtifact) -> str:
 | Measure | Value |
 |---|---|
 | Rows | {_count(size, "n_rows")} |
-| Distinct instants | {_count(size, "n_instants")} |
+| Distinct instants | {_count(size, "n_timestamps")} |
 | **Non-overlapping observations** | **{_count(size, "n_non_overlapping")}** |
 | Days of data | {size.get("n_days", "unknown")} |
 
