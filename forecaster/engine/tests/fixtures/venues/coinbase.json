@@ -1,0 +1,85 @@
+{
+  "match": {
+    "type": "match",
+    "trade_id": 486823291,
+    "maker_order_id": "b1b3a3f4-1111-4d0e-9f2e-0000000000aa",
+    "taker_order_id": "c2c4b4e5-2222-4a1f-8e3d-0000000000bb",
+    "side": "sell",
+    "size": "0.01374000",
+    "price": "79434.27",
+    "product_id": "BTC-USD",
+    "sequence": 84927315502,
+    "time": "2026-09-09T06:30:00.123456Z"
+  },
+  "match_buy_maker": {
+    "type": "match",
+    "trade_id": 486823292,
+    "side": "buy",
+    "size": "0.00500000",
+    "price": "79433.10",
+    "product_id": "BTC-USD",
+    "sequence": 84927315503,
+    "time": "2026-09-09T06:30:00.456789Z"
+  },
+  "ticker": {
+    "type": "ticker",
+    "sequence": 84927315504,
+    "product_id": "BTC-USD",
+    "price": "79434.27",
+    "open_24h": "78120.00",
+    "volume_24h": "9421.31",
+    "low_24h": "77980.11",
+    "high_24h": "79988.40",
+    "best_bid": "79433.92",
+    "best_bid_size": "0.31240000",
+    "best_ask": "79434.55",
+    "best_ask_size": "0.11800000",
+    "side": "buy",
+    "time": "2026-09-09T06:30:00.501000Z",
+    "trade_id": 486823291,
+    "last_size": "0.01374000"
+  },
+  "ticker_without_sizes": {
+    "type": "ticker",
+    "product_id": "ETH-USD",
+    "price": "3142.85",
+    "best_bid": "3142.71",
+    "best_ask": "3142.99",
+    "time": "2026-09-09T06:30:01.000000Z"
+  },
+  "snapshot": {
+    "type": "snapshot",
+    "product_id": "BTC-USD",
+    "bids": [["79433.92", "0.31240000"], ["79433.10", "0.55000000"], ["79432.05", "1.20000000"]],
+    "asks": [["79434.55", "0.11800000"], ["79435.20", "0.48000000"], ["79436.00", "0.90000000"]]
+  },
+  "l2update": {
+    "type": "l2update",
+    "product_id": "BTC-USD",
+    "time": "2026-09-09T06:30:02.000000Z",
+    "changes": [["buy", "79433.10", "0.00000000"], ["sell", "79435.20", "0.75000000"]]
+  },
+  "error": {
+    "type": "error",
+    "message": "Failed to subscribe",
+    "reason": "BTC-USDX is not a valid product"
+  },
+  "rest_ticker": {
+    "ask": "79434.55",
+    "bid": "79433.92",
+    "volume": "9421.31",
+    "trade_id": 486823291,
+    "price": "79434.27",
+    "size": "0.01374000",
+    "time": "2026-09-09T06:30:00.501000Z"
+  },
+  "rest_trades": [
+    {"time": "2026-09-09T06:30:00.501000Z", "trade_id": 486823291, "price": "79434.27", "size": "0.01374000", "side": "sell"},
+    {"time": "2026-09-09T06:29:59.900000Z", "trade_id": 486823290, "price": "79433.10", "size": "0.00500000", "side": "buy"}
+  ],
+  "rest_book": {
+    "sequence": 84927315510,
+    "bids": [["79433.92", "0.31240000", 2], ["79433.10", "0.55000000", 1]],
+    "asks": [["79434.55", "0.11800000", 1], ["79435.20", "0.48000000", 3]]
+  }
+}

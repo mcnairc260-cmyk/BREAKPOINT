@@ -1,0 +1,144 @@
+# CI for the crypto probability forecaster.
+#
+# The point of this job is not that the code compiles. It is that the honesty
+# guarantees still hold: that no feature can see the future, that raising a
+# target can never raise the probability of clearing it, that the prediction log
+# cannot be edited, and that a learned model cannot find skill in a market where
+# none exists.
+#
+# The suite runs with sockets disabled. That is hermeticity, and it is also the
+# only way the exchange-adapter fixtures mean anything: if any of that code could
+# reach a venue, a green run would say nothing about whether it works offline.
+name: Forecaster
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'forecaster/**'
+      - '.github/workflows/forecaster-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'forecaster/**'
+      - '.github/workflows/forecaster-ci.yml'
+
+concurrency:
+  group: forecaster-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    name: Engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: forecaster/engine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          set -euo pipefail
+          ruff check src tests
+
+      - name: Format
+        run: |
+          set -euo pipefail
+          ruff format --check src tests
+
+      # No `.fit(` anywhere in the feature layer. Fitting a scaler, a residual
+      # shape or a seasonal factor on the full dataset before splitting is the
+      # most common real leak in practice, and it is invisible in the results
+      # because it simply makes the model look better.
+      - name: No global preprocessing in the feature layer
+        run: |
+          set -euo pipefail
+          if grep -rn '\.fit(' src/forecaster/features/; then
+            echo "FAIL: the feature layer must not fit anything — that belongs inside a fold"
+            exit 1
+          fi
+          echo "ok: no fitting in the feature layer"
+
+      - name: Typecheck
+        run: |
+          set -euo pipefail
+          mypy src/forecaster
+
+      - name: Tests
+        run: |
+          set -euo pipefail
+          python -m pytest -q
+
+      - name: Offline verification suite
+        run: |
+          set -euo pipefail
+          forecaster verify --seeds 4 --output ../../verify-report.json
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: verify-report
+          path: verify-report.json
+          retention-days: 14
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: forecaster/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: forecaster/web/package-lock.json
+
+      # `ci`, not `install`: the lockfile is the point.
+      - name: Install
+        run: |
+          set -euo pipefail
+          npm ci
+
+      - name: Typecheck
+        run: |
+          set -euo pipefail
+          npm run typecheck
+
+      - name: Lint
+        run: |
+          set -euo pipefail
+          npm run lint
+
+      - name: Test
+        run: |
+          set -euo pipefail
+          npm run test
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          npm run build

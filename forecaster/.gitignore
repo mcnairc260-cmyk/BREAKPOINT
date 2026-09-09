@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Data and artifacts — captures and databases are large and reproducible
+data/
+artifacts/
+*.db
+*.db-wal
+*.db-shm
+*.ndjson
+*.ndjson.gz
+
+# Reports
+reports/
+*.report.json
+
+# Node (see web/.gitignore for the rest)
+node_modules/
+
+# Secrets
+.env
+.env.local
+.env*.local
+
+# OS
+.DS_Store
+Thumbs.db
