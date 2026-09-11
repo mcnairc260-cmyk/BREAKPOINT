@@ -15,7 +15,9 @@ forecaster/
 │       │   ├── replay.py           NDJSON capture: write, read, replay
 │       │   ├── bars.py             trades → OHLCV at five resolutions
 │       │   ├── book.py             snapshot + delta, with gap detection
+│       │   ├── conformance.py      a venue's wire protocol, on localhost
 │       │   └── venues/             coinbase · binance · kraken
+│       │       └── endpoints.py      which hosts are real, and nothing else is
 │       ├── store/                 SQLAlchemy Core; SQLite dev, Postgres ready
 │       │   ├── schema.py           tables, constraints, the append-only rule
 │       │   ├── hashchain.py        the tamper-evident prediction log
@@ -29,7 +31,11 @@ forecaster/
 │       ├── quality/               stale · duplicate · anomaly · crossed book
 │       ├── backtest/              point-in-time replay through the real engine
 │       ├── service/               collector · evaluator · engine · FastAPI
-│       └── cli/                   simulate · collect · train · backtest · …
+│       │   ├── liverunner.py       the unattended collect-and-forecast loop
+│       │   ├── livecheck.py        does this feed say what we think it says?
+│       │   ├── livereport.py       the real-market validation report
+│       │   └── livestatus.py       progress toward the learner threshold
+│       └── cli/                   simulate · collect · live-check · …
 └── web/                          Next.js 15 · React 19 · TypeScript strict
     └── src/{core,components,app}/
 ```
@@ -62,6 +68,20 @@ Reconnection, backoff with jitter, rate-limit handling, malformed-message
 counting and the staleness clock live in the shared base class, because every
 venue fails the same handful of ways and an adapter that had to re-solve all of
 that is an adapter nobody writes correctly.
+
+**The label is not the adapter's to choose.** Each adapter takes `ws_url` and
+`rest_url`, because a test double and a staging endpoint both need somewhere to
+point — so an adapter that also hardcoded `DataSource.LIVE` would write rows
+labelled LIVE from a local server, permanently, into an append-only log. The
+`data_source` is therefore *derived* from the host being connected to, by exact
+match in `venues/endpoints.py`. A host that is not on that list cannot produce
+live data, whatever it serves and whatever it is called. There is no override.
+
+`conformance.py` is what that guarantee makes safe: a server speaking Coinbase's
+wire protocol on `127.0.0.1`, so the unmodified production adapter can be driven
+over a real socket — handshake, subscribe, frame loop, reconnect, stale feed,
+malformed frame — in an environment with no exchange. It proves the client. Only
+`forecaster live-check` can prove the venue.
 
 ### 2. `MarketWindow` — where causality is enforced
 

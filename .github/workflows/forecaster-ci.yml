@@ -6,9 +6,10 @@
 # cannot be edited, and that a learned model cannot find skill in a market where
 # none exists.
 #
-# The suite runs with sockets disabled. That is hermeticity, and it is also the
-# only way the exchange-adapter fixtures mean anything: if any of that code could
-# reach a venue, a green run would say nothing about whether it works offline.
+# The suite runs with sockets disabled, except for the conformance tests, which
+# may reach 127.0.0.1 and nothing else. That is a stronger guarantee than turning
+# the block off: a test asserting that the adapter connected cannot have connected
+# to a real exchange, because a real exchange is still unreachable.
 name: Forecaster
 
 on:
@@ -92,11 +93,44 @@ jobs:
           set -euo pipefail
           forecaster verify --seeds 4 --output ../../verify-report.json
 
+      # The live data path, against a server speaking the venue's wire protocol
+      # on localhost. Without this, a change that breaks the WebSocket client,
+      # the reconnect loop or the staleness ladder passes CI and fails the day
+      # someone finally runs it against an exchange — which no runner here can.
+      - name: Live path conformance
+        run: |
+          set -euo pipefail
+          forecaster conformance --seconds 60 --output ../../conformance-report.json
+
+      # The one guarantee that keeps the track record meaningful: a provider
+      # pointed anywhere but a venue's own host must not be able to write rows
+      # labelled LIVE. Asserted in tests too; asserted here because it is the
+      # single failure that cannot be undone once it has happened.
+      - name: Provenance guard
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from forecaster.marketdata.venues.coinbase import CoinbaseProvider
+          from forecaster.types import DataSource
+
+          assert CoinbaseProvider().data_source is DataSource.LIVE
+          for url in (
+              "ws://127.0.0.1:9001",
+              "wss://ws-feed.exchange.coinbase.com.attacker.example",
+              "wss://evil-coinbase.com",
+          ):
+              got = CoinbaseProvider(ws_url=url).data_source
+              assert got is DataSource.SIMULATED, f"{url} was labelled {got}"
+          print("ok: only real venue hosts produce LIVE data")
+          PY
+
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: verify-report
-          path: verify-report.json
+          path: |
+            verify-report.json
+            conformance-report.json
           retention-days: 14
 
   web:

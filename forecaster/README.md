@@ -6,14 +6,19 @@ scored automatically afterwards.
 
 > ### NO REAL-MARKET VALIDATION HAS BEEN PERFORMED
 >
-> Every result in this repository was produced on **simulated or replayed** data.
-> The environment this was built in cannot reach any exchange — every venue and
-> market-data host tested is blocked by network policy, and WebSocket upgrades
-> are unsupported through its proxy.
+> **No real BTC or ETH data has been ingested. No live forecast has been made or
+> resolved.** Every result here was produced on **simulated, replayed or
+> conformance** data. The environment this was built in cannot reach any exchange:
+> Coinbase, Kraken and Binance are each refused with `HTTP 403` at the egress
+> proxy, on both transports.
 >
 > So: the pipeline is built and tested, the maths is checked, the leakage
-> controls work, and the product runs end to end. **Nothing here is evidence
-> about real markets.** See [`VALIDATION.md`](VALIDATION.md).
+> controls work, the live data path is exercised over a real socket, and the
+> product runs end to end. **Nothing here is evidence about real markets.**
+>
+> The remaining gap is exactly one thing — network access to an exchange — and
+> three commands close it. See [`LIVE_VALIDATION.md`](LIVE_VALIDATION.md) and
+> [`VALIDATION.md`](VALIDATION.md).
 
 ---
 
@@ -67,20 +72,30 @@ make demo      # ~45 minutes; writes reports/backtest.json
 To point it at a real exchange, from a machine with ordinary network access:
 
 ```bash
-make smoke                                    # ~30s: proves the adapter works
-FORECASTER_PROVIDER=live make serve           # then collect for real
+make live-check                               # ~30s: verifies the venue's prices
+FORECASTER_PROVIDER=live make collect-live    # then collect, for days
+make live-status                              # progress and feed health
+make live-report                              # the validation report
 ```
 
-`make smoke` runs the venue check with the project's own interpreter. Running
-`python scripts/smoke_live.py` directly fails with `ModuleNotFoundError` unless
-your system Python happens to have `httpx` and `websockets` — use the make
-target, or `engine/.venv/bin/python scripts/smoke_live.py`.
+`make live-check` does not just confirm that bytes arrived. Per symbol it checks
+sixteen things and prints what it observed for each — symbol mapping, decimal
+precision, both timestamps, bid, ask, midpoint, spread, freshness, whether the
+book is crossed — and exits non-zero on any impossible value. Run it before a
+long collection run, which is what it is for.
 
-No API key is needed. Coinbase's market data is public, which is a large part of
-why it is the default.
+Without an exchange you can still exercise the entire live path:
 
-Other useful targets: `make verify` (lint, types, tests, offline suite, web
-build), `make test`, `make stop`, `make clean`. `make help` lists them.
+```bash
+make conformance      # ~60s: the real adapter against a local wire-protocol server
+```
+
+No API key is needed for any of this. Coinbase's market data is public, which is
+a large part of why it is the default.
+
+Other useful targets: `make verify` (lint, types, tests, offline suite, the
+conformance run, web build), `make test`, `make stop`, `make clean`. `make help`
+lists them.
 
 ---
 
@@ -112,10 +127,16 @@ much is, and that is what makes the product possible.
 | `forecaster evaluate` | Score forecasts whose horizon has passed. |
 | `forecaster report` | Performance statistics, grouped and caveated. |
 | `forecaster serve` | Run the API, the collector and the evaluator. |
+| `forecaster live-check` | Connect to a real venue and verify every price it reports. |
+| `forecaster collect-live` | Collect live data and forecast against it, unattended. |
+| `forecaster live-status` | Feed health and progress toward the learner threshold. |
+| `forecaster live-report` | The real-market validation report. Live rows only. |
+| `forecaster conformance` | The whole live path against a local server, no network. |
 | `forecaster verify` | The full offline verification suite. |
 
 `make verify` runs everything: lint, types, the Python suite, the offline suite,
-and the web app's typecheck, lint, tests and production build.
+the conformance run, and the web app's typecheck, lint, tests and production
+build.
 
 ---
 
@@ -133,10 +154,19 @@ Adding a venue is one file. Reconnection, backoff with jitter, rate limiting,
 malformed-message handling and the staleness clock are shared.
 
 **The venue adapters have never been run against a live venue in this
-environment.** They are unit-tested against fixtures written from each exchange's
-published API documentation — which proves the parsing and proves nothing about
-the connection. `scripts/smoke_live.py` closes that gap in about thirty seconds
-on a machine with network access.
+environment**, because no venue is reachable from it.
+
+They are, however, no longer only fixture-tested. `make conformance` runs a
+server speaking Coinbase's wire protocol on `127.0.0.1` and connects the
+unmodified production adapter to it over a real socket — handshake, subscribe,
+frame loop, book building, reconnects, stale feeds, malformed frames, restarts.
+That proves the client. It cannot prove the venue emits these shapes today;
+`make live-check` is the only thing that can, and it needs a network.
+
+A provider's `data_source` is **derived from the host it connects to**, never
+asserted. Anything that is not a venue hostname — a local server, a staging
+endpoint, a typo, a look-alike domain — produces `SIMULATED` rows that no live
+metric will ever count. There is no override flag.
 
 ---
 

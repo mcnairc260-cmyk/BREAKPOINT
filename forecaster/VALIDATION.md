@@ -2,15 +2,29 @@
 
 > ## NO REAL-MARKET VALIDATION HAS BEEN PERFORMED
 >
-> Every result in this repository was produced on **simulated or replayed** data.
-> The environment this system was built in cannot reach any exchange: Binance,
-> Coinbase, Kraken, Bitstamp, Gemini, OKX, Bybit, Bitfinex, CoinGecko, CoinCap,
-> CryptoCompare, Finnhub, AlphaVantage and Yahoo Finance are all blocked by
-> network policy, and WebSocket upgrades are unsupported through its proxy.
+> **No real BTC or ETH market data has been ingested. No live forecast has been
+> made. No live forecast has been resolved.** Every number in this document was
+> produced on **simulated, replayed or conformance** data.
+>
+> The environment this system was built in cannot reach any exchange. Re-verified
+> at the start of the real-market validation phase: Coinbase, Kraken and Binance
+> are each refused with `HTTP 403` at the egress proxy, on both the WebSocket and
+> the REST transport. Bitstamp, Gemini, OKX, Bybit, Bitfinex, CoinGecko, CoinCap,
+> CryptoCompare, Finnhub, AlphaVantage and Yahoo Finance were blocked too.
 >
 > That means the results here show the **pipeline is correct**. They are not
 > evidence about real markets, and none of them should be quoted as if they were.
 > This banner stays until real outcomes exist.
+>
+> **What did change:** the live data path is no longer only fixture-tested. The
+> production adapter is now exercised over a real socket against a server
+> speaking Coinbase's wire protocol, including reconnects, stale feeds, malformed
+> frames and restarts — `make conformance`, 11/11. That proves the **client**. It
+> proves nothing about the venue and nothing whatever about forecast accuracy.
+>
+> The gap is exactly one thing: network egress to an exchange. See
+> **[LIVE_VALIDATION.md](LIVE_VALIDATION.md)** for the three commands that close
+> it, and for the two defects this phase found in code that was already shipping.
 
 ---
 

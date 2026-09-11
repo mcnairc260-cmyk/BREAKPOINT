@@ -139,6 +139,35 @@ async function run() {
     }
     note(`live price ${spot}`);
 
+    // --- choosing the asset ------------------------------------------------
+    // Both assets must be reachable and must show different prices. A selector
+    // that renders but does not switch would pass every other check here.
+    await page.getByRole('button', { name: /Ethereum|ETH/ }).first().click();
+    await page.waitForFunction(
+      (btcPrice) => {
+        const match = document.body.innerText.match(/\$([\d,]+\.\d\d)/);
+        if (!match) return false;
+        const shown = Number.parseFloat(match[1].replace(/,/g, ''));
+        return Number.isFinite(shown) && Math.abs(shown - btcPrice) / btcPrice > 0.1;
+      },
+      spot,
+      { timeout: 20_000 },
+    );
+    note('switching to ETH shows a different live price');
+    await page.getByRole('button', { name: /Bitcoin|BTC/ }).first().click();
+    await page.waitForFunction(
+      (btcPrice) => {
+        const match = document.body.innerText.match(/\$([\d,]+\.\d\d)/);
+        if (!match) return false;
+        const shown = Number.parseFloat(match[1].replace(/,/g, ''));
+        return Number.isFinite(shown) && Math.abs(shown - btcPrice) / btcPrice < 0.1;
+      },
+      spot,
+      { timeout: 20_000 },
+    );
+    note('switching back to BTC restores the BTC price');
+    await assertNoHorizontalOverflow(page, label);
+
     // --- a target ABOVE the current price ---------------------------------
     const input = page.locator('input[type="number"]');
     await input.fill((spot * 1.002).toFixed(2));
@@ -171,6 +200,19 @@ async function run() {
       note('countdown to expiry is running');
     }
 
+    // A countdown alone is not enough: "4:58 to go" does not say when, and a
+    // user who leaves the page needs the clock time to come back to.
+    if ((await page.getByText('Scores at').count()) < 2) {
+      problems.push(`[${label}] no absolute expiry time shown on both cards`);
+    } else {
+      const scoresAt = await page.getByText(/^\d{1,2}:\d{2}(:\d{2})?( ?[ap]m)?$/i).count();
+      if (scoresAt === 0) {
+        problems.push(`[${label}] "Scores at" is shown without a clock time`);
+      } else {
+        note('absolute expiry time shown alongside the countdown');
+      }
+    }
+
     await page.getByRole('button', { name: /Show how this number was made/ }).first().click();
     await page.waitForSelector('text=Distance in σ', { timeout: 5_000 });
     note('advanced panel opens');
@@ -198,9 +240,73 @@ async function run() {
     await page.getByRole('link', { name: 'History' }).click();
     await page.waitForSelector('text=Prediction history', { timeout: 10_000 });
     await assertNoHorizontalOverflow(page, label);
+    // The heading is server-rendered and the rows are fetched afterwards, so
+    // counting immediately measures how fast the machine is, not whether the
+    // page works. Counting without this wait passed by luck until the checks
+    // above changed the timing.
+    await page
+      .locator('text=Target')
+      .first()
+      .waitFor({ timeout: 15_000 })
+      .catch(() => {});
     const rows = await page.locator('text=Target').count();
     if (rows === 0) problems.push(`[${label}] history shows no forecasts after making some`);
     else note(`history shows ${rows} forecasts`);
+
+    // A forecast the user can inspect AFTER it expired. The whole product rests
+    // on outcomes being visible, so a history that only ever showed "pending"
+    // would be a serious functional gap however well the rest worked.
+    //
+    // Read the page's own SCORED counter rather than grepping for the word
+    // "resolved": the explanatory copy on this page contains "scored" and
+    // "resolved" in prose, so a text match is true whether or not anything has
+    // actually been scored.
+    const scored = await page.evaluate(() => {
+      const labels = [...document.querySelectorAll('*')].filter(
+        (el) => el.children.length === 0 && /^SCORED$/i.test((el.textContent ?? '').trim()),
+      );
+      for (const el of labels) {
+        const block = el.parentElement?.textContent ?? '';
+        const match = block.replace(/SCORED/i, '').match(/\d+/);
+        if (match) return Number.parseInt(match[0], 10);
+      }
+      return null;
+    });
+    if (scored === null) {
+      problems.push(`[${label}] the history page does not report how many forecasts were scored`);
+    } else if (scored > 0) {
+      // A resolved row must show both halves of the result: whether the forecast
+      // was right, and the price it was settled at. The badge alone would let a
+      // user see a verdict with no way to check it.
+      const body = await page.innerText('body');
+      const badges = (body.match(/[✓✗]\s*(CORRECT|WRONG)/gi) ?? []).length;
+      const settled = (body.match(/SETTLED AT\n\$[\d,]+/g) ?? []).length;
+      if (badges === 0) {
+        problems.push(
+          `[${label}] ${scored} forecasts are scored but no row shows a correct/wrong verdict`,
+        );
+      } else if (settled === 0) {
+        problems.push(
+          `[${label}] ${scored} forecasts are scored but no row shows the settlement price`,
+        );
+      } else {
+        note(
+          `resolved forecasts are inspectable: ${badges} verdicts, ` +
+            `${settled} settlement prices`,
+        );
+      }
+      // And the page must not let a tiny sample read as a track record.
+      if (!/far too few|too few|not enough/i.test(body)) {
+        problems.push(`[${label}] a ${scored}-forecast sample is shown without a caveat`);
+      } else {
+        note('small-sample caveat is shown next to the accuracy figure');
+      }
+    } else {
+      note(
+        'nothing had expired yet in this run, and the page says so rather than ' +
+          'showing a blank — expiry and scoring are covered by the engine suite',
+      );
+    }
     await page.screenshot({ path: `${OUT}/${label}-history.png`, fullPage: true });
 
     // --- performance ------------------------------------------------------

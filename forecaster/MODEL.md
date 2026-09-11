@@ -257,9 +257,19 @@ assumed.
 
 In the order that would actually help:
 
-1. **Real data.** A week of continuous collection makes the 5-minute learner
-   trainable; about a month makes the 20-minute one trainable. Nothing else on
-   this list matters until that exists.
+1. **Real data.** Nothing else on this list matters until that exists, and it
+   still does not exist — see [`LIVE_VALIDATION.md`](LIVE_VALIDATION.md). The
+   command is `make collect-live`, it samples each horizon once per horizon so
+   no two forecasts overlap, and at that rate a symbol accumulates 288
+   independent 5-minute and 72 independent 20-minute observations per day. The
+   learner threshold is 750 independent observations, so roughly three days for
+   the 5-minute model and ten for the 20-minute one.
+
+   Sampling faster does not shorten that. Two forecasts five seconds apart at a
+   five-minute horizon share 295 of their 300 seconds; six targets at one instant
+   are six views of one future price. The threshold is counted in non-overlapping
+   observations for exactly this reason and must not be weakened to make the
+   waiting shorter.
 2. **Fitted seasonality.** The time-of-week volatility pattern is real, stable
    and free to exploit — but it must be estimated from real data, so it ships as
    flat.
@@ -268,7 +278,8 @@ In the order that would actually help:
 4. **Perpetual-futures basis and funding rates**, which carry genuine information
    about positioning and predict liquidation cascades — which are volatility.
 5. **A second venue**, as a cross-check on the first, which is how a bad feed gets
-   caught.
+   caught. The adapters exist; what is missing is the cross-venue comparison and
+   a network that can reach two of them at once.
 
 ---
 
