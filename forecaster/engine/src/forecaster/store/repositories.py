@@ -8,11 +8,14 @@ is a change here and nowhere else.
 from __future__ import annotations
 
 import json
+import threading
+import time
 from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import and_, delete, desc, func, insert, select, update
 from sqlalchemy.engine import Connection
+from sqlalchemy.exc import IntegrityError
 
 from forecaster.store.database import Database
 from forecaster.store.hashchain import GENESIS, row_digest, verify_chain
@@ -359,6 +362,55 @@ class MarketRepository:
                 "bars": int(conn.execute(select(func.count()).select_from(bars)).scalar_one()),
             }
 
+    def counts_for(self, *, symbol: str, data_source: DataSource) -> dict[str, int]:
+        """Row counts for one symbol from one source.
+
+        Separate from `counts()` rather than a parameter on it: the live status
+        view must never be able to answer "how much live data is there?" with a
+        number that quietly includes simulated rows, and a default argument is
+        exactly how that happens.
+        """
+        out: dict[str, int] = {}
+        with self.db.connect() as conn:
+            for name, table in (
+                ("trades", trades),
+                ("quotes", quotes),
+                ("books", book_snapshots),
+                ("bars", bars),
+            ):
+                out[name] = int(
+                    conn.execute(
+                        select(func.count())
+                        .select_from(table)
+                        .where(
+                            and_(
+                                table.c.symbol == symbol,
+                                table.c.data_source == data_source.value,
+                            )
+                        )
+                    ).scalar_one()
+                )
+        return out
+
+    def span(self, *, symbol: str, data_source: DataSource) -> tuple[int | None, int | None]:
+        """First and last trade timestamps for one symbol and source.
+
+        Exchange time, not receipt time: "how much market did we see" is a
+        question about the market's clock.
+        """
+        with self.db.connect() as conn:
+            row = conn.execute(
+                select(func.min(trades.c.exchange_ns), func.max(trades.c.exchange_ns)).where(
+                    and_(
+                        trades.c.symbol == symbol,
+                        trades.c.data_source == data_source.value,
+                    )
+                )
+            ).first()
+        if row is None or row[0] is None:
+            return None, None
+        return int(row[0]), int(row[1])
+
     def purge_source(self, source: DataSource) -> None:
         """Remove one data source entirely.
 
@@ -368,6 +420,38 @@ class MarketRepository:
         with self.db.begin() as conn:
             for table in (trades, quotes, book_snapshots, bars):
                 conn.execute(delete(table).where(table.c.data_source == source.value))
+
+
+#: How many times an append may lose the race for the chain head before it
+#: gives up. Generous enough for ordinary contention, small enough that a
+#: livelock fails loudly instead of hanging.
+_APPEND_ATTEMPTS = 8
+_APPEND_RETRY_S = 0.01
+
+#: Guards the read-modify-write of the chain head. Module level rather than
+#: per instance because two `PredictionRepository` objects opened on the same
+#: database are two writers to one chain, and a per-instance lock would not
+#: see the other. Appends happen a few times a minute, so the coarseness
+#: costs nothing. Across processes the unique index is what holds the line.
+_APPEND_LOCK = threading.Lock()
+
+
+def _is_chain_collision(error: IntegrityError) -> bool:
+    """True when an insert lost the race for the chain head, not when it was invalid.
+
+    Matched on the constraint's own name and on the column, because the two
+    supported backends word it differently:
+
+        SQLite      UNIQUE constraint failed: predictions.prev_hash
+        PostgreSQL  duplicate key value violates unique constraint
+                    "ux_prediction_chain"
+
+    Matching on text is not lovely. The alternative — treating every
+    `IntegrityError` as retryable — is worse: it silently converts the schema's
+    deliberate refusals into a timeout.
+    """
+    message = str(getattr(error, "orig", error)).lower()
+    return "ux_prediction_chain" in message or "prev_hash" in message
 
 
 @dataclass
@@ -387,16 +471,56 @@ class PredictionRepository:
         return GENESIS if row is None else str(row[0])
 
     def append(self, row: dict[str, Any]) -> tuple[int, str]:
-        with self.db.begin() as conn:
-            prev = self._head_hash(conn)
-            digest = row_digest(row, prev)
-            result = conn.execute(
-                insert(predictions).values(**row, prev_hash=prev, row_hash=digest)
-            )
-            key = result.inserted_primary_key
-            assert key is not None, "insert must return a primary key"
-            new_id = int(key[0])
-        return new_id, digest
+        """Extend the hash chain by one row.
+
+        Reading the head and appending to it is a read-modify-write, and it was
+        not atomic. Two threads — the API runs handlers on a thread pool, and the
+        live runner forecasts each symbol on its own thread — could both read the
+        same head and both append to it. Neither insert failed. The chain forked,
+        and the next verification reported a break that was indistinguishable
+        from tampering. The log whose entire purpose is to be trustworthy was
+        quietly untrustworthy under ordinary concurrency.
+
+        Two defences, because one is not enough:
+
+        * a process-wide lock, which removes the contention in the common case
+          where every writer is in this process;
+        * a unique index on `prev_hash`, which makes a fork impossible even
+          across processes. The loser of a race gets an `IntegrityError`, re-reads
+          the head and tries again.
+
+        The retry is bounded. Livelock under heavy contention should surface as a
+        loud failure, not as an append that never returns.
+        """
+        last: Exception | None = None
+        for _ in range(_APPEND_ATTEMPTS):
+            with _APPEND_LOCK:
+                try:
+                    with self.db.begin() as conn:
+                        prev = self._head_hash(conn)
+                        digest = row_digest(row, prev)
+                        result = conn.execute(
+                            insert(predictions).values(**row, prev_hash=prev, row_hash=digest)
+                        )
+                        key = result.inserted_primary_key
+                        assert key is not None, "insert must return a primary key"
+                        return int(key[0]), digest
+                except IntegrityError as exc:
+                    # Only a chain-head collision is retryable. Every other
+                    # integrity failure is a refusal the caller must see: a
+                    # probability of exactly 0 or 1, a horizon that runs
+                    # backwards, a negative price. Retrying those eight times and
+                    # then reporting a RuntimeError would turn a precise,
+                    # intentional rejection into a vague one — which is what the
+                    # first version of this loop did, and what the existing
+                    # persistence tests caught.
+                    if not _is_chain_collision(exc):
+                        raise
+                    last = exc
+            time.sleep(_APPEND_RETRY_S)
+        raise RuntimeError(
+            f"could not extend the prediction chain after {_APPEND_ATTEMPTS} attempts: {last}"
+        )
 
     def due_for_evaluation(self, now_ns: int, limit: int = 500) -> list[dict[str, Any]]:
         """Predictions whose horizon has passed and which have no outcome yet."""

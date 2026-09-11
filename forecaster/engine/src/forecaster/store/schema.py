@@ -160,6 +160,14 @@ predictions = Table(
     # database is the last place a bad number can be stopped.
     CheckConstraint("p_above > 0.0 AND p_above < 1.0", name="ck_probability_open_interval"),
     CheckConstraint("eval_at_ns > as_of_ns", name="ck_horizon_forward"),
+    # The hash chain must not fork. Two rows sharing a `prev_hash` means two
+    # writers read the same head and both appended to it, which silently
+    # destroys the tamper-evidence the chain exists to provide — the
+    # verifier then reports a break that looks like tampering. Expressing
+    # "the chain is linear" as a uniqueness constraint makes the race
+    # impossible rather than unlikely: the loser of the race gets an
+    # IntegrityError and retries against the new head.
+    Index("ux_prediction_chain", "prev_hash", unique=True),
     CheckConstraint("spot > 0.0 AND target > 0.0", name="ck_prices_positive"),
     Index("ix_pred_eval", "eval_at_ns"),
     Index("ix_pred_created", "created_ns"),

@@ -75,6 +75,17 @@ def open_database(url: str, *, create: bool = True) -> Database:
 
     if create:
         metadata.create_all(engine)
+        # `create_all` skips a table that already exists, and skips its indexes
+        # with it. The chain-fork guard therefore has to be issued explicitly, or
+        # a database created before the guard existed would never gain it — and
+        # that is exactly the database with history worth protecting.
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ux_prediction_chain "
+                    "ON predictions (prev_hash)"
+                )
+            )
         if engine.dialect.name == "sqlite":
             with engine.begin() as conn:
                 for statement in _SQLITE_APPEND_ONLY:
