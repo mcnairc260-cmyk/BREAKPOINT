@@ -13,6 +13,7 @@ layer, so a failure points at the mathematics rather than at the plumbing.
 from __future__ import annotations
 
 import math
+from itertools import pairwise
 
 import pytest
 
@@ -23,9 +24,7 @@ HORIZONS = (300, 1200)
 SPOT = 79_434.21
 
 
-def distribution(
-    sigma: float, *, mu: float = 0.0, horizon_s: int = 300
-) -> ForecastDistribution:
+def distribution(sigma: float, *, mu: float = 0.0, horizon_s: int = 300) -> ForecastDistribution:
     """A baseline-shaped distribution at a given horizon volatility.
 
     Student-t tails with four degrees of freedom: the shipped default until
@@ -62,7 +61,7 @@ def test_a_higher_target_is_always_less_likely_to_be_exceeded(horizon_s: int) ->
     dist = distribution(sigma, horizon_s=horizon_s)
     targets = [SPOT * math.exp(z * sigma) for z in [x / 4.0 for x in range(-16, 17)]]
     probs = [dist.prob_above(t) for t in targets]
-    for lower, higher in zip(probs, probs[1:], strict=False):
+    for lower, higher in pairwise(probs):
         assert higher <= lower + 1e-12, "raising the target raised P(above)"
     assert probs[0] > probs[-1], "the curve is flat: raising the target changed nothing"
 
@@ -106,10 +105,8 @@ def test_rising_volatility_pulls_extreme_probabilities_toward_a_coin_flip() -> N
         for sigma in (0.0005, 0.001, 0.002, 0.004, 0.008):
             p = distribution(sigma).prob_above(target)
             gaps.append(abs(p - 0.5))
-        for wider, narrower in zip(gaps, gaps[1:], strict=False):
-            assert narrower <= wider + 1e-9, (
-                "higher volatility moved a fixed target away from 50%"
-            )
+        for wider, narrower in pairwise(gaps):
+            assert narrower <= wider + 1e-9, "higher volatility moved a fixed target away from 50%"
         assert gaps[-1] < gaps[0], "volatility had no effect on the probability"
 
 

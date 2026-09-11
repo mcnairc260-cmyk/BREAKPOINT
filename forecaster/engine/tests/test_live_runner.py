@@ -13,7 +13,6 @@ run rather than by a suite that would have to wait twenty minutes.
 
 from __future__ import annotations
 
-import asyncio
 import math
 from pathlib import Path
 
@@ -58,7 +57,7 @@ def build(tmp_path: Path, horizons=(HORIZON_S,)):
 
 
 async def run_once(tmp_path: Path, *, seconds: float = RUN_S, horizons=(HORIZON_S,)):
-    database, config, market, predictions, quality, horizons = build(tmp_path, horizons)
+    _database, config, market, predictions, quality, horizons = build(tmp_path, horizons)
     async with CoinbaseConformanceVenue(rate_hz=80.0, history_s=2400.0) as venue:
         provider = CoinbaseProvider(ws_url=venue.ws_url, rest_url=venue.rest_url)
         collector = Collector(
@@ -380,7 +379,7 @@ def test_targets_are_placed_in_log_space_and_stay_positive() -> None:
     # and rounding 882.4297 to 882.43 is a relative change of a few parts per
     # million at this spread. It is still three orders of magnitude tighter than
     # the error a linear ladder would produce: `spot * (1 - 5 * 0.9)` is
-    # −278,019, which the positivity assertion above already rejects.
+    # -278,019, which the positivity assertion above already rejects.
     assert math.isclose(targets[0] * targets[2], 79_434.21**2, rel_tol=1e-4)
     assert place(fake, 0.0, 0.01) == []
     assert place(fake, 100.0, 0.0) == []
