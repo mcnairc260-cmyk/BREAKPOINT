@@ -17,7 +17,8 @@ import httpx
 
 from forecaster.clock import now_ns
 from forecaster.marketdata.provider import MarketEvent, ProviderBase, ProviderError
-from forecaster.types import NS_PER_SECOND, DataSource, Quote, Side, Trade
+from forecaster.marketdata.venues.endpoints import classify_endpoint
+from forecaster.types import NS_PER_SECOND, Quote, Side, Trade
 
 WS_URL = "wss://ws.kraken.com/v2"
 REST_URL = "https://api.kraken.com"
@@ -86,7 +87,10 @@ class KrakenProvider(ProviderBase):
         poll_interval_s: float = 1.0,
     ) -> None:
         super().__init__(
-            venue="kraken", data_source=DataSource.LIVE, stale_after_ns=30 * NS_PER_SECOND
+            venue="kraken",
+            # Derived from the hosts, never asserted. See endpoints.py.
+            data_source=classify_endpoint("kraken", ws_url, rest_url),
+            stale_after_ns=30 * NS_PER_SECOND,
         )
         if transport not in ("websocket", "poll"):
             raise ProviderError(f"unknown transport: {transport!r}")
@@ -135,10 +139,12 @@ class KrakenProvider(ProviderBase):
         async with httpx.AsyncClient(base_url=self.rest_url, timeout=10.0) as client:
             while True:
                 for symbol in symbols:
-                    received_ns = now_ns()
                     response = await client.get(
                         "/0/public/Ticker", params={"pair": to_venue_symbol(symbol)}
                     )
+                    # Stamped on arrival. See the note in coinbase.py: stamping
+                    # before the round trip reads as negative latency.
+                    received_ns = now_ns()
                     if response.status_code == 429:
                         self._health.rate_limited += 1
                         await asyncio.sleep(5.0)

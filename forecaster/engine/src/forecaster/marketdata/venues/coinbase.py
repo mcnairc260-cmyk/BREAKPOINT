@@ -33,7 +33,8 @@ import httpx
 from forecaster.clock import now_ns
 from forecaster.marketdata.book import BookBuilder, SequenceGap
 from forecaster.marketdata.provider import MarketEvent, ProviderBase, ProviderError
-from forecaster.types import NS_PER_SECOND, DataSource, Quote, Side, Trade
+from forecaster.marketdata.venues.endpoints import classify_endpoint
+from forecaster.types import NS_PER_SECOND, Quote, Side, Trade
 
 WS_URL = "wss://ws-feed.exchange.coinbase.com"
 REST_URL = "https://api.exchange.coinbase.com"
@@ -156,9 +157,12 @@ class CoinbaseProvider(ProviderBase):
         rest_url: str = REST_URL,
         poll_interval_s: float = POLL_INTERVAL_S,
     ) -> None:
+        # The label is derived from the hosts, never asserted. Pointing this
+        # adapter at anything that is not Coinbase produces SIMULATED data, so a
+        # conformance double or a typo cannot enter the live track record.
         super().__init__(
             venue="coinbase",
-            data_source=DataSource.LIVE,
+            data_source=classify_endpoint("coinbase", ws_url, rest_url),
             stale_after_ns=30 * NS_PER_SECOND,
         )
         if transport not in ("websocket", "poll"):
@@ -273,11 +277,17 @@ class CoinbaseProvider(ProviderBase):
     async def _poll_symbol(
         self, client: httpx.AsyncClient, symbol: str
     ) -> AsyncIterator[MarketEvent]:
-        received_ns = now_ns()
         try:
             ticker = await client.get(f"/products/{symbol}/ticker")
         except httpx.HTTPError as exc:
             raise ProviderError(f"coinbase ticker request failed: {exc}") from exc
+        # Stamped when the response ARRIVES, not when the request was sent.
+        # Taking it before the round trip makes `received_ns` earlier than the
+        # exchange stamp inside the payload, which reads as negative latency:
+        # it corrupts the clock-skew estimate and makes a poll look fresher
+        # than it is. The websocket path never had this problem because the
+        # frame is already in hand when it is stamped.
+        received_ns = now_ns()
         if ticker.status_code == 429:
             self._health.rate_limited += 1
             await asyncio.sleep(2.0)
@@ -296,6 +306,7 @@ class CoinbaseProvider(ProviderBase):
             await asyncio.sleep(2.0)
             return
         trades_response.raise_for_status()
+        received_ns = now_ns()
         seen = self._seen_trade_ids[symbol]
         fresh: list[Trade] = []
         for item in trades_response.json():
@@ -320,6 +331,7 @@ class CoinbaseProvider(ProviderBase):
         if book_response.status_code != 200:
             return
         payload = book_response.json()
+        received_ns = now_ns()
         builder = self._books[symbol]
         builder.apply_snapshot(
             [(float(p), float(s)) for p, s, *_ in payload.get("bids", [])[: self.book_depth]],

@@ -20,7 +20,8 @@ import httpx
 
 from forecaster.clock import now_ns
 from forecaster.marketdata.provider import MarketEvent, ProviderBase, ProviderError
-from forecaster.types import NS_PER_SECOND, DataSource, Quote, Side, Trade
+from forecaster.marketdata.venues.endpoints import classify_endpoint
+from forecaster.types import NS_PER_SECOND, Quote, Side, Trade
 
 WS_URL = "wss://stream.binance.com:9443/stream"
 REST_URL = "https://api.binance.com"
@@ -89,7 +90,10 @@ class BinanceProvider(ProviderBase):
         poll_interval_s: float = 1.0,
     ) -> None:
         super().__init__(
-            venue="binance", data_source=DataSource.LIVE, stale_after_ns=30 * NS_PER_SECOND
+            venue="binance",
+            # Derived from the hosts, never asserted. See endpoints.py.
+            data_source=classify_endpoint("binance", ws_url, rest_url),
+            stale_after_ns=30 * NS_PER_SECOND,
         )
         if transport not in ("websocket", "poll"):
             raise ProviderError(f"unknown transport: {transport!r}")
@@ -134,11 +138,12 @@ class BinanceProvider(ProviderBase):
         async with httpx.AsyncClient(base_url=self.rest_url, timeout=10.0) as client:
             while True:
                 for symbol in symbols:
-                    received_ns = now_ns()
                     venue_symbol = to_venue_symbol(symbol)
                     response = await client.get(
                         "/api/v3/ticker/bookTicker", params={"symbol": venue_symbol}
                     )
+                    # Stamped on arrival. See the note in coinbase.py.
+                    received_ns = now_ns()
                     if response.status_code == 429:
                         self._health.rate_limited += 1
                         await asyncio.sleep(5.0)
