@@ -247,6 +247,11 @@ quality_events = Table(
     Column("kind", String(48), nullable=False),
     Column("severity", String(16), nullable=False),
     Column("detail", Text, nullable=False),
+    # Nullable, and NULL means "recorded before sources were tracked" rather
+    # than any particular source. A live report counts only rows that say they
+    # are live, so unlabelled history is excluded rather than guessed at — the
+    # alternative was a live report listing quality events from simulator runs.
+    Column("data_source", String(16), nullable=True),
     Index("ix_quality_time", "observed_ns"),
 )
 

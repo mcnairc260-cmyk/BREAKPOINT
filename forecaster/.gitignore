@@ -39,3 +39,13 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+
+# Live-run outputs are NOT committed, unlike the others in reports/.
+#
+# verify.json, backtest.json and conformance.json are reproducible from the code
+# in this tree: anyone can run `make verify` and get them back. These two depend
+# on which exchange the machine could reach and what the market did at the time,
+# so a committed copy is a claim nobody else can check — and a copy produced on a
+# blocked network would be a record of failure presented as evidence.
+reports/live-check.json
+reports/live-validation.json

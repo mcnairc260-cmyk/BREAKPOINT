@@ -19,6 +19,7 @@ import logging
 import subprocess
 import sys
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -466,17 +467,27 @@ def cmd_serve(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _quiet_transport_noise() -> Counter[str]:
+def _quiet_transport_noise() -> tuple[Counter[str], Callable[[], None]]:
     """Stop a library's internal tracebacks burying the one useful line.
 
     A refused WebSocket handshake makes `websockets` log a full traceback and
     leaves an unretrieved exception on an internal task, which asyncio then
     prints itself — once per reconnect attempt. Against a blocked host that is
     six tracebacks wrapped around one sentence ("proxy rejected connection: HTTP
-    403") which is the only part anyone needs.
+    403"), which is the only part anyone needs.
 
-    Nothing is hidden: the returned counter is reported, and the provider's own
+    Nothing is hidden: the counter is reported, and the provider's own
     `last_error` carries the real diagnosis.
+
+    Returns the counter and an `install` callable that must be invoked **inside**
+    the running loop, because an exception handler belongs to a loop and there is
+    no loop yet when this is called.
+
+    An earlier version stashed that callable in a module-level list for
+    `_with_quiet` to find. One caller never populated the list, so the
+    suppression silently did nothing there and `collect-live` printed six
+    library tracebacks per run. Returning the callable makes forgetting it a
+    type error rather than a surprise found by reading the output.
     """
     logging.getLogger("websockets").setLevel(logging.CRITICAL)
     logging.getLogger("websockets.client").setLevel(logging.CRITICAL)
@@ -496,19 +507,12 @@ def _quiet_transport_noise() -> Counter[str]:
         with contextlib.suppress(RuntimeError):
             asyncio.get_running_loop().set_exception_handler(collect)
 
-    # Installed on whichever loop is running when the first coroutine starts.
-    _PENDING_HANDLERS.append(install)
-    return background
+    return background, install
 
 
-_PENDING_HANDLERS: list[Any] = []
-
-
-async def _with_quiet(coro: Any) -> Any:
+async def _with_quiet(install: Callable[[], None], coro: Any) -> Any:
     """Run a coroutine with the noise handler installed on its own loop."""
-    for install in _PENDING_HANDLERS:
-        install()
-    _PENDING_HANDLERS.clear()
+    install()
     return await coro
 
 
@@ -539,7 +543,7 @@ def cmd_live_check(args: argparse.Namespace) -> int:
     venue = args.venue or config.venue
     symbols = tuple(args.symbols.split(",")) if args.symbols else tuple(config.symbols)
     overrides = _live_endpoints(venue, args)
-    background = _quiet_transport_noise()
+    background, install_quiet = _quiet_transport_noise()
 
     provider = build_venue_provider(venue, symbols=symbols, transport=args.transport, **overrides)
     if overrides:
@@ -547,6 +551,7 @@ def cmd_live_check(args: argparse.Namespace) -> int:
 
     async def go() -> Any:
         return await _with_quiet(
+            install_quiet,
             live_check(
                 provider,
                 symbols=symbols,
@@ -554,7 +559,7 @@ def cmd_live_check(args: argparse.Namespace) -> int:
                 transport=args.transport,
                 ws_url=overrides.get("ws_url"),
                 rest_url=overrides.get("rest_url"),
-            )
+            ),
         )
 
     report = asyncio.run(go())
@@ -598,7 +603,7 @@ def cmd_collect_live(args: argparse.Namespace) -> int:
     horizons = tuple(int(h) for h in args.horizons.split(",")) if args.horizons else HORIZONS_S
     overrides = _live_endpoints(venue, args)
 
-    logging.getLogger("websockets").setLevel(logging.CRITICAL)
+    _, install_quiet = _quiet_transport_noise()
 
     provider = build_venue_provider(venue, symbols=symbols, transport=args.transport, **overrides)
     collector = Collector(
@@ -634,7 +639,7 @@ def cmd_collect_live(args: argparse.Namespace) -> int:
     print("  ctrl-c to stop. Forecasts already written are resolved on the next start.\n")
 
     try:
-        status = asyncio.run(_with_quiet(runner.run(seconds=args.seconds)))
+        status = asyncio.run(_with_quiet(install_quiet, runner.run(seconds=args.seconds)))
     except KeyboardInterrupt:
         runner.stop()
         status = runner.status

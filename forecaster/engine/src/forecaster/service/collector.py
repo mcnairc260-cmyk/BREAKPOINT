@@ -192,6 +192,7 @@ class Collector:
                 kind=issue.kind,
                 severity=issue.severity.value,
                 detail=issue.detail,
+                data_source=self.data_source,
             )
 
     def flush(self, force: bool = False) -> None:

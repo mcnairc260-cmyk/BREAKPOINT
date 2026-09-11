@@ -13,7 +13,9 @@ run rather than by a suite that would have to wait twenty minutes.
 
 from __future__ import annotations
 
+import json
 import math
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -337,22 +339,54 @@ async def test_a_small_sample_is_labelled_insufficient(tmp_path: Path) -> None:
 
 @pytest.mark.enable_socket
 @pytest.mark.allow_hosts(["127.0.0.1", "::1"])
-async def test_the_status_file_reports_health_and_goes_stale(tmp_path: Path) -> None:
-    """An operator must be able to tell a quiet runner from a dead one."""
-    status, _p, _m, _q, _c = await run_once(tmp_path, seconds=25.0)
-    live = read_status(tmp_path / "status.json")
-    assert live["running"] is True
-    assert live["data_source"] == DataSource.SIMULATED.value
-    assert live["per_symbol"]["BTC-USD"]["forecasts"] >= 0
-    assert status.started_ns > 0
+async def test_the_status_file_says_whether_the_runner_is_alive(tmp_path: Path) -> None:
+    """An operator must be able to tell a quiet runner from a dead one.
 
-    # A status file nobody has written for an hour describes a process that is gone.
-    stale = read_status(tmp_path / "status.json", max_age_s=0.0)
+    Three ways a runner can be gone, and the file has to distinguish all of them
+    from "running but the market is quiet":
+
+      * it shut down cleanly and said so;
+      * it died without saying anything, so the file has simply stopped moving;
+      * it never started, so there is no file.
+    """
+    status, _p, _m, _q, _c = await run_once(tmp_path, seconds=25.0)
+    path = tmp_path / "status.json"
+
+    # 1. A clean shutdown is recorded, and is not reported as running however
+    #    recently the file was written. Age alone would call this alive for a
+    #    full minute after the process was gone.
+    after = read_status(path)
+    assert after["running"] is False
+    assert "clean shutdown" in after["reason"]
+    assert after["data_source"] == DataSource.SIMULATED.value
+    assert after["connected"] is False
+    assert status.started_ns > 0
+    assert "BTC-USD" in after["per_symbol"]
+
+    # 2. A runner that is alive and writing: same file, shutdown marker cleared.
+    payload = json.loads(path.read_text())
+    payload["stopped"] = False
+    payload["updated"] = (
+        datetime.fromtimestamp(now_ns() / 1_000_000_000, tz=UTC).isoformat().replace("+00:00", "Z")
+    )
+    path.write_text(json.dumps(payload))
+    assert read_status(path)["running"] is True
+
+    # 3. A runner that died without a word: the file simply stops moving.
+    payload["updated"] = (
+        datetime.fromtimestamp(now_ns() / 1_000_000_000 - 3_600, tz=UTC)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    path.write_text(json.dumps(payload))
+    stale = read_status(path)
     assert stale["running"] is False
     assert "not running" in stale["reason"]
 
+    # 4. A runner that never started.
     missing = read_status(tmp_path / "nope.json")
     assert missing["running"] is False
+    assert "no readable status file" in missing["reason"]
 
 
 def test_the_target_ladder_covers_both_sides_and_the_far_tail() -> None:

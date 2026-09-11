@@ -700,6 +700,7 @@ class QualityRepository:
         kind: str,
         severity: str,
         detail: str,
+        data_source: DataSource | None = None,
     ) -> None:
         with self.db.begin() as conn:
             conn.execute(
@@ -710,6 +711,7 @@ class QualityRepository:
                     kind=kind,
                     severity=severity,
                     detail=detail,
+                    data_source=data_source.value if data_source else None,
                 )
             )
 
@@ -718,10 +720,22 @@ class QualityRepository:
         with self.db.connect() as conn:
             return [dict(r._mapping) for r in conn.execute(stmt)]
 
-    def counts_by_kind(self, since_ns: int) -> dict[str, int]:
+    def counts_by_kind(
+        self, since_ns: int, *, data_source: DataSource | None = None
+    ) -> dict[str, int]:
+        """Quality events by kind, optionally for one source only.
+
+        A live report that counted every quality event would attribute a
+        simulator run's rejected ticks to the live feed. Rows written before the
+        column existed carry NULL and are excluded by the filter rather than
+        assumed to belong to whichever source is being asked about.
+        """
+        conditions: list[Any] = [quality_events.c.observed_ns >= since_ns]
+        if data_source is not None:
+            conditions.append(quality_events.c.data_source == data_source.value)
         stmt = (
             select(quality_events.c.kind, func.count())
-            .where(quality_events.c.observed_ns >= since_ns)
+            .where(and_(*conditions))
             .group_by(quality_events.c.kind)
         )
         with self.db.connect() as conn:

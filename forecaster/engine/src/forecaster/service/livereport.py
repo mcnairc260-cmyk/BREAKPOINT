@@ -286,7 +286,7 @@ def live_validation_report(
 
     quality: dict[str, int] = {}
     if quality_repo is not None:
-        for kind, count in quality_repo.counts_by_kind(0).items():
+        for kind, count in quality_repo.counts_by_kind(0, data_source=data_source).items():
             quality[str(kind)] = int(count)
 
     total_live = sum(g.forecasts for g in groups)

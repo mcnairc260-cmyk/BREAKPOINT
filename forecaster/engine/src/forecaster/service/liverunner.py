@@ -145,6 +145,10 @@ class RunnerStatus:
     stale_events: int = 0
     evaluated: int = 0
     voided: int = 0
+    stopped: bool = False
+    """Set on clean shutdown. Without it a status file written seconds before the
+    process exited reads as a running collector for as long as the staleness
+    window lasts, which is the one question this file exists to answer."""
     errors: list[str] = field(default_factory=list)
     progress: dict[str, SymbolProgress] = field(default_factory=dict)
 
@@ -161,7 +165,8 @@ class RunnerStatus:
             "horizons_s": list(self.horizons_s),
             "sampling_interval_s": {str(k): v for k, v in sorted(self.interval_s.items())},
             "target_ladder_z": list(self.ladder_z),
-            "connected": self.connected,
+            "stopped": self.stopped,
+            "connected": self.connected and not self.stopped,
             "last_event": iso(self.last_event_ns) if self.last_event_ns else None,
             "feed_age_s": age,
             "reconnects": self.reconnects,
@@ -399,6 +404,7 @@ class LiveRunner:
                 self.status.evaluated += run.resolved
                 self.status.voided += run.voided
             self.refresh_status()
+            self.status.stopped = True
             self.write_status()
         return self.status
 
@@ -417,6 +423,10 @@ def read_status(path: Path, *, max_age_s: float = 60.0) -> dict[str, Any]:
         payload: dict[str, Any] = json.loads(path.read_text())
     except (OSError, ValueError):
         return {"running": False, "reason": f"no readable status file at {path}"}
+    if payload.get("stopped"):
+        payload["running"] = False
+        payload["reason"] = "the runner recorded a clean shutdown"
+        return payload
     updated = payload.get("updated")
     age: float | None = None
     if isinstance(updated, str):
