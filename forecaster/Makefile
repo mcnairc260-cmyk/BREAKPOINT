@@ -14,6 +14,7 @@ PY     := $(ENGINE)/.venv/bin/python
 BIN    := $(ENGINE)/.venv/bin
 
 .PHONY: help setup verify test lint format typecheck offline-suite web-verify \
+        conformance live-check collect-live live-report live-status \
         demo dev serve smoke stop clean
 
 help:
@@ -21,6 +22,13 @@ help:
 	@echo "verify        everything: lint, types, tests, offline suite, web build"
 	@echo "dev           run the engine and the web app together (ctrl-c stops both)"
 	@echo "serve         run the engine alone"
+	@echo ""
+	@echo "  the live path"
+	@echo "live-check    connect to a real exchange and verify its prices (~30s)"
+	@echo "collect-live  collect real market data and forecast against it, for days"
+	@echo "live-status   collection progress and feed health"
+	@echo "live-report   the real-market validation report"
+	@echo "conformance   the same path against a local server, no exchange needed"
 	@echo "smoke         prove a venue adapter against the real exchange (~30s)"
 	@echo "demo          simulate -> train -> backtest, end to end"
 	@echo "test          Python tests only"
@@ -53,16 +61,25 @@ test:
 offline-suite:
 	cd $(ENGINE) && .venv/bin/forecaster verify --seeds 6 --output ../reports/verify.json
 
+# The live path, proved without an exchange: a server speaking the venue's wire
+# protocol on localhost, and the real adapter connecting to it over a real
+# socket. This is what stops a change to the live path from failing silently in
+# an environment that cannot reach a venue — which is every CI runner here.
+conformance:
+	cd $(ENGINE) && .venv/bin/forecaster conformance --seconds 60 \
+		--output ../reports/conformance.json
+
 web-verify:
 	cd $(WEB) && npm run typecheck && npm run lint && npm run test && npm run build
 
 # `typecheck` belongs here. The help text promised types were checked and this
 # target did not run mypy, which is the kind of gap that makes a green build
 # mean less than it says.
-verify: lint typecheck test offline-suite web-verify
+verify: lint typecheck test offline-suite conformance web-verify
 	@echo ""
-	@echo "verified. Note: all results are from simulated or replayed data."
-	@echo "See VALIDATION.md — no real-market validation has been performed."
+	@echo "verified. Note: all results are from simulated, replayed or conformance data."
+	@echo "The conformance run proves the live path works; it is not market data."
+	@echo "See VALIDATION.md and LIVE_VALIDATION.md for what has and has not been shown."
 
 demo:
 	cd $(ENGINE) && .venv/bin/forecaster simulate --duration 288000 --regime realistic --anchor-now --reset
@@ -79,6 +96,31 @@ serve:
 # the system Python and it failed on import.
 smoke:
 	$(PY) scripts/smoke_live.py $(ARGS)
+
+# ---------------------------------------------------------------------------
+# The live path. These need a network that can reach an exchange.
+# ---------------------------------------------------------------------------
+
+# Step one, always. Connects to the venue and verifies that every price it
+# reports means what the code thinks it means: symbol mapping, precision, both
+# timestamps, bid, ask, midpoint, spread, freshness. Exits non-zero on any
+# impossible value, so it is safe to put in front of a long collection run.
+live-check:
+	cd $(ENGINE) && .venv/bin/forecaster live-check --seconds 30 \
+		--json ../reports/live-check.json $(ARGS)
+
+# Step two. Runs until stopped. Each horizon is sampled once per horizon, so no
+# two forecasts from one symbol overlap and the row count is the evidence count.
+# Safe to restart: forecasts already written are resolved on the next start.
+collect-live:
+	cd $(ENGINE) && .venv/bin/forecaster collect-live $(ARGS)
+
+live-status:
+	cd $(ENGINE) && .venv/bin/forecaster live-status $(ARGS)
+
+live-report:
+	cd $(ENGINE) && .venv/bin/forecaster live-report \
+		--json ../reports/live-validation.json $(ARGS)
 
 # Both processes, with cleanup that actually happens.
 #

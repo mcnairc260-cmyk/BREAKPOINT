@@ -13,7 +13,6 @@ as a live one, and the API makes that awkward to do by accident.
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -28,6 +27,7 @@ from forecaster.config import Config, load_config
 from forecaster.service.collector import Collector
 from forecaster.service.engine import ForecastEngine, ForecastRefused
 from forecaster.service.evaluator import Evaluator
+from forecaster.service.persist import prediction_row
 from forecaster.service.schemas import (
     ForecastRequest,
     ForecastResponse,
@@ -106,47 +106,7 @@ def _forecast_to_out(forecast: Forecast, prediction_id: int | None) -> HorizonFo
 
 
 def _persist(app_state: AppState, forecast: Forecast) -> int:
-    row = {
-        "created_ns": now_ns(),
-        "as_of_ns": forecast.as_of_ns,
-        "eval_at_ns": forecast.eval_at_ns,
-        "horizon_s": forecast.horizon_s,
-        "venue": forecast.venue,
-        "symbol": forecast.symbol,
-        "spot": forecast.spot,
-        "target": forecast.target,
-        "z": forecast.z,
-        "sigma": forecast.sigma,
-        "p_above": forecast.p_above,
-        "range_low": forecast.range_low,
-        "range_high": forecast.range_high,
-        "range_confidence": forecast.range_confidence,
-        "median": forecast.median,
-        "confidence": forecast.confidence.value,
-        "confidence_reasons": json.dumps(list(forecast.confidence_reasons)),
-        "service_level": forecast.service_level.value,
-        "model_version": forecast.model_version,
-        "model_train_source": forecast.model_train_source.value,
-        "calibration_source": (
-            forecast.calibration_source.value if forecast.calibration_source else None
-        ),
-        "data_source": forecast.data_source.value,
-        "prediction_mode": forecast.prediction_mode.value,
-        "features_json": json.dumps(forecast.features.values),
-        "feature_set_version": forecast.features.feature_set_version,
-        "contributions_json": json.dumps(
-            [
-                {
-                    "name": c.name,
-                    "label": c.label,
-                    "direction": c.direction,
-                    "weight": c.weight,
-                    "detail": c.detail,
-                }
-                for c in forecast.contributions
-            ]
-        ),
-    }
+    row = prediction_row(forecast)
     prediction_id, _ = app_state.prediction_repo.append(row)
     return prediction_id
 

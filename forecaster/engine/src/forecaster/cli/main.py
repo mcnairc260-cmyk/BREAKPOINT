@@ -13,15 +13,18 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
+import logging
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
 from forecaster.clock import iso, now_ns
 from forecaster.config import Config, load_config
-from forecaster.types import NS_PER_SECOND, DataSource
+from forecaster.types import HORIZONS_S, NS_PER_SECOND, DataSource
 
 
 def git_sha() -> str | None:
@@ -459,8 +462,258 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# live-check — prove a real venue, in one step
+# ---------------------------------------------------------------------------
+
+
+def _quiet_transport_noise() -> Counter[str]:
+    """Stop a library's internal tracebacks burying the one useful line.
+
+    A refused WebSocket handshake makes `websockets` log a full traceback and
+    leaves an unretrieved exception on an internal task, which asyncio then
+    prints itself — once per reconnect attempt. Against a blocked host that is
+    six tracebacks wrapped around one sentence ("proxy rejected connection: HTTP
+    403") which is the only part anyone needs.
+
+    Nothing is hidden: the returned counter is reported, and the provider's own
+    `last_error` carries the real diagnosis.
+    """
+    logging.getLogger("websockets").setLevel(logging.CRITICAL)
+    logging.getLogger("websockets.client").setLevel(logging.CRITICAL)
+    logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
+    background: Counter[str] = Counter()
+
+    def collect(_loop: object, context: dict[str, Any]) -> None:
+        exception = context.get("exception")
+        label = (
+            f"{type(exception).__name__}: {exception}"
+            if exception is not None
+            else str(context.get("message", "unknown"))
+        )
+        background[label] += 1
+
+    def install() -> None:
+        with contextlib.suppress(RuntimeError):
+            asyncio.get_running_loop().set_exception_handler(collect)
+
+    # Installed on whichever loop is running when the first coroutine starts.
+    _PENDING_HANDLERS.append(install)
+    return background
+
+
+_PENDING_HANDLERS: list[Any] = []
+
+
+async def _with_quiet(coro: Any) -> Any:
+    """Run a coroutine with the noise handler installed on its own loop."""
+    for install in _PENDING_HANDLERS:
+        install()
+    _PENDING_HANDLERS.clear()
+    return await coro
+
+
+def _live_endpoints(venue: str, args: argparse.Namespace) -> dict[str, str]:
+    """Endpoint overrides, used by the conformance harness and nothing else.
+
+    Pointing these anywhere but the venue's own hosts downgrades the data source
+    to SIMULATED — see `marketdata/venues/endpoints.py`. There is no flag that
+    can make non-venue data count as live.
+    """
+    overrides: dict[str, str] = {}
+    if getattr(args, "ws_url", None):
+        overrides["ws_url"] = args.ws_url
+    if getattr(args, "rest_url", None):
+        overrides["rest_url"] = args.rest_url
+    return overrides
+
+
+def cmd_live_check(args: argparse.Namespace) -> int:
+    """Connect to a venue and verify that every price it reports means what we think."""
+    import json as _json
+
+    from forecaster.marketdata.venues import build_venue_provider
+    from forecaster.marketdata.venues.endpoints import endpoint_note
+    from forecaster.service.livecheck import format_report, live_check
+
+    config = load_config()
+    venue = args.venue or config.venue
+    symbols = tuple(args.symbols.split(",")) if args.symbols else tuple(config.symbols)
+    overrides = _live_endpoints(venue, args)
+    background = _quiet_transport_noise()
+
+    provider = build_venue_provider(venue, symbols=symbols, transport=args.transport, **overrides)
+    if overrides:
+        print(f"  {endpoint_note(venue, *overrides.values())}")
+
+    async def go() -> Any:
+        return await _with_quiet(
+            live_check(
+                provider,
+                symbols=symbols,
+                seconds=args.seconds,
+                transport=args.transport,
+                ws_url=overrides.get("ws_url"),
+                rest_url=overrides.get("rest_url"),
+            )
+        )
+
+    report = asyncio.run(go())
+    print(format_report(report))
+    if background:
+        total = sum(background.values())
+        top = background.most_common(1)[0][0]
+        print(f"  {total} background transport errors suppressed, e.g. {top}\n")
+    if args.json:
+        Path(args.json).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.json).write_text(_json.dumps(report.to_dict(), indent=2))
+        print(f"  written to {args.json}\n")
+    if report.error and report.events == 0:
+        print(
+            "  Nothing arrived. On a network that blocks exchanges this is the expected\n"
+            "  result: the adapter is fine and the route is not. Try --transport poll,\n"
+            "  then run this from a machine with ordinary internet access.\n"
+        )
+    return 0 if report.ok else 1
+
+
+# ---------------------------------------------------------------------------
+# collect-live — the unattended runner
+# ---------------------------------------------------------------------------
+
+
+def cmd_collect_live(args: argparse.Namespace) -> int:
+    """Collect real market data and forecast against it, indefinitely."""
+    from forecaster.marketdata.venues import build_venue_provider
+    from forecaster.marketdata.venues.endpoints import endpoint_note
+    from forecaster.models.baseline import BaselineModel
+    from forecaster.quality import QualityMonitor
+    from forecaster.service.collector import Collector
+    from forecaster.service.engine import ForecastEngine
+    from forecaster.service.liverunner import LiveRunner
+
+    config = load_config()
+    _, market_repo, prediction_repo, _, quality_repo = _open(config)
+    venue = args.venue or config.venue
+    symbols = tuple(args.symbols.split(",")) if args.symbols else tuple(config.symbols)
+    horizons = tuple(int(h) for h in args.horizons.split(",")) if args.horizons else HORIZONS_S
+    overrides = _live_endpoints(venue, args)
+
+    logging.getLogger("websockets").setLevel(logging.CRITICAL)
+
+    provider = build_venue_provider(venue, symbols=symbols, transport=args.transport, **overrides)
+    collector = Collector(
+        provider=provider,
+        market_repo=market_repo,
+        quality_repo=quality_repo,
+        symbols=symbols,
+        bar_resolutions_s=config.bar_resolutions_s,
+        monitor=QualityMonitor(config.quality),
+    )
+    runner = LiveRunner(
+        provider=provider,
+        collector=collector,
+        engine=ForecastEngine(baseline=BaselineModel(config=config.model), config=config),
+        prediction_repo=prediction_repo,
+        market_repo=market_repo,
+        config=config,
+        symbols=symbols,
+        horizons_s=horizons,
+        interval_s=({h: args.interval for h in horizons} if args.interval else None),
+    )
+
+    print(f"  {endpoint_note(venue, *overrides.values())}" if overrides else "")
+    print(f"  collecting {', '.join(symbols)} from {venue} over {args.transport}")
+    print(f"  data source      {provider.data_source.value.upper()}")
+    print(f"  horizons         {', '.join(str(h) + 's' for h in horizons)}")
+    print(
+        "  sampling         "
+        + ", ".join(f"{h}s every {runner.interval_s[h]:.0f}s" for h in horizons)
+    )
+    print(f"  targets          {len(runner.ladder_z)} per instant at z = {list(runner.ladder_z)}")
+    print(f"  status file      {runner.status_path}")
+    print("  ctrl-c to stop. Forecasts already written are resolved on the next start.\n")
+
+    try:
+        status = asyncio.run(_with_quiet(runner.run(seconds=args.seconds)))
+    except KeyboardInterrupt:
+        runner.stop()
+        status = runner.status
+    summary = status.to_dict()
+    print(
+        f"\n  {sum(p['forecasts'] for p in summary['per_symbol'].values()):,} forecasts written, "
+        f"{summary['evaluated']:,} resolved, {summary['voided']:,} void, "
+        f"{summary['reconnects']} reconnects"
+    )
+    print("  `forecaster live-report` for the full picture.\n")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# live-report — the real-market validation report
+# ---------------------------------------------------------------------------
+
+
+def cmd_live_report(args: argparse.Namespace) -> int:
+    import json as _json
+
+    from forecaster.service.livereport import format_report, live_validation_report
+    from forecaster.types import DataSource
+
+    config = load_config()
+    _, _, prediction_repo, _, quality_repo = _open(config)
+    symbols = tuple(args.symbols.split(",")) if args.symbols else tuple(config.symbols)
+    horizons = tuple(int(h) for h in args.horizons.split(",")) if args.horizons else HORIZONS_S
+
+    report = live_validation_report(
+        prediction_repo=prediction_repo,
+        quality_repo=quality_repo,
+        symbols=symbols,
+        horizons_s=horizons,
+        data_source=DataSource(args.data_source),
+    )
+    print(format_report(report))
+    if args.json:
+        Path(args.json).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.json).write_text(_json.dumps(report, indent=2))
+        print(f"  written to {args.json}\n")
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# live-status — is it running, and how far along is it
+# ---------------------------------------------------------------------------
+
+
+def cmd_live_status(args: argparse.Namespace) -> int:
+    from forecaster.service.livestatus import format_status, live_status
+
+    config = load_config()
+    _, market_repo, prediction_repo, _, _ = _open(config)
+    status = live_status(
+        config=config,
+        prediction_repo=prediction_repo,
+        market_repo=market_repo,
+        symbols=tuple(args.symbols.split(",")) if args.symbols else tuple(config.symbols),
+    )
+    if args.json:
+        import json as _json
+
+        print(_json.dumps(status, indent=2))
+    else:
+        print(format_status(status))
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # verify
 # ---------------------------------------------------------------------------
+
+
+def cmd_conformance(args: argparse.Namespace) -> int:
+    """Exercise the entire live path against a local wire-protocol server."""
+    from forecaster.cli.conformance_run import run_conformance
+
+    return run_conformance(seconds=args.seconds, output=args.output)
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
@@ -539,6 +792,53 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--port", type=int, default=8099)
     p.add_argument("--log-level", default="info")
     p.set_defaults(func=cmd_serve)
+
+    p = sub.add_parser("live-check", help="verify a real venue's prices, in one step")
+    p.add_argument("--venue", default=None)
+    p.add_argument("--symbols", default=None)
+    p.add_argument("--transport", default="websocket", choices=("websocket", "poll"))
+    p.add_argument("--seconds", type=float, default=30.0)
+    p.add_argument("--json", default=None, help="also write the report here")
+    p.add_argument("--ws-url", default=None, help=argparse.SUPPRESS)
+    p.add_argument("--rest-url", default=None, help=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_live_check)
+
+    p = sub.add_parser("collect-live", help="collect live data and forecast against it")
+    p.add_argument("--venue", default=None)
+    p.add_argument("--symbols", default=None)
+    p.add_argument("--transport", default="websocket", choices=("websocket", "poll"))
+    p.add_argument("--horizons", default=None, help="comma separated seconds")
+    p.add_argument(
+        "--interval",
+        type=float,
+        default=None,
+        help=(
+            "seconds between sampling instants (default: the horizon, so forecasts never overlap)"
+        ),
+    )
+    p.add_argument("--seconds", type=float, default=None, help="stop after this long")
+    p.add_argument("--ws-url", default=None, help=argparse.SUPPRESS)
+    p.add_argument("--rest-url", default=None, help=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_collect_live)
+
+    p = sub.add_parser("live-report", help="the real-market validation report")
+    p.add_argument("--symbols", default=None)
+    p.add_argument("--horizons", default=None)
+    p.add_argument("--data-source", default="live", choices=("live", "replay", "simulated"))
+    p.add_argument("--json", default=None)
+    p.set_defaults(func=cmd_live_report)
+
+    p = sub.add_parser("live-status", help="collection progress and feed health")
+    p.add_argument("--symbols", default=None)
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(func=cmd_live_status)
+
+    p = sub.add_parser(
+        "conformance", help="exercise the live path against a local wire-protocol server"
+    )
+    p.add_argument("--seconds", type=float, default=60.0)
+    p.add_argument("--output", default=None)
+    p.set_defaults(func=cmd_conformance)
 
     p = sub.add_parser("verify", help="run the full offline verification suite")
     p.add_argument("--seeds", type=int, default=8)
