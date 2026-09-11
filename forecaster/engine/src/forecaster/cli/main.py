@@ -714,6 +714,27 @@ def cmd_live_status(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def cmd_live_proof(args: argparse.Namespace) -> int:
+    """The one command that proves the system on a real market, or says why not."""
+    from forecaster.cli.live_proof import run_live_proof
+
+    _, install_quiet = _quiet_transport_noise()
+    config = load_config()
+    return run_live_proof(
+        venue=args.venue or config.venue,
+        transport=args.transport,
+        symbols=tuple(args.symbols.split(",")) if args.symbols else tuple(config.symbols),
+        horizons_s=tuple(int(h) for h in args.horizons.split(",")) if args.horizons else HORIZONS_S,
+        minutes=args.minutes,
+        warmup_s=args.warmup_s,
+        sample_every_s=args.interval,
+        output=args.json,
+        ws_url=args.ws_url,
+        rest_url=args.rest_url,
+        quiet_install=install_quiet,
+    )
+
+
 def cmd_conformance(args: argparse.Namespace) -> int:
     """Exercise the entire live path against a local wire-protocol server."""
     from forecaster.cli.conformance_run import run_conformance
@@ -837,6 +858,28 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--symbols", default=None)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_live_status)
+
+    p = sub.add_parser("live-proof", help="the one command that proves the system on a real market")
+    p.add_argument("--venue", default=None)
+    p.add_argument("--symbols", default=None)
+    p.add_argument("--transport", default="websocket", choices=("websocket", "poll"))
+    p.add_argument("--horizons", default=None, help="comma separated seconds")
+    p.add_argument("--minutes", type=float, default=75.0, help="wall-clock budget")
+    p.add_argument(
+        "--warmup-s",
+        type=float,
+        default=1800.0,
+        help=(
+            "seconds of market to collect before expecting a forecast. The default "
+            "is the volatility model's own minimum and lowering it will not make it "
+            "speak sooner — it only shortens the budget"
+        ),
+    )
+    p.add_argument("--interval", type=float, default=None, help=argparse.SUPPRESS)
+    p.add_argument("--json", default=None)
+    p.add_argument("--ws-url", default=None, help=argparse.SUPPRESS)
+    p.add_argument("--rest-url", default=None, help=argparse.SUPPRESS)
+    p.set_defaults(func=cmd_live_proof)
 
     p = sub.add_parser(
         "conformance", help="exercise the live path against a local wire-protocol server"

@@ -49,3 +49,4 @@ Thumbs.db
 # blocked network would be a record of failure presented as evidence.
 reports/live-check.json
 reports/live-validation.json
+reports/live-proof.json

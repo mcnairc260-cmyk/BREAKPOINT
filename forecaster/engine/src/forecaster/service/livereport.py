@@ -312,25 +312,32 @@ def live_validation_report(
         "groups": [g.to_dict() for g in groups],
         "stale_and_quality_events": quality,
         "reconnects": reconnects,
-        "headline": _headline(groups),
+        "headline": _headline(groups, data_source),
     }
 
 
-def _headline(groups: Sequence[GroupReport]) -> str:
-    """One sentence an honest person can paste into a message."""
+def _headline(groups: Sequence[GroupReport], data_source: DataSource) -> str:
+    """One sentence an honest person can paste into a message.
+
+    It names the source. An earlier version said "live forecasts resolved"
+    whatever the report was scoped to, so a simulated run produced a sentence
+    that read as a real-market result the moment it left this page.
+    """
+    label = data_source.value
     resolved = sum(g.resolved for g in groups)
     if resolved == 0:
         return "No live forecasts have been resolved. This system has no real-market track record."
     claimable = [g for g in groups if g.can_claim_calibration]
     independent = sum(g.n_non_overlapping for g in groups)
+    kind = "real market" if data_source is DataSource.LIVE else f"{label} data"
     if not claimable:
         return (
-            f"{resolved} live forecasts resolved ({independent} independent observations). "
-            "That is enough to show the pipeline works end to end on real data, and "
-            "not enough to support any claim about calibration or skill."
+            f"{resolved} {label} forecasts resolved ({independent} independent "
+            f"observations). That is enough to show the pipeline works end to end on "
+            f"{kind}, and not enough to support any claim about calibration or skill."
         )
     return (
-        f"{resolved} live forecasts resolved ({independent} independent observations). "
+        f"{resolved} {label} forecasts resolved ({independent} independent observations). "
         f"{len(claimable)} of {len(groups)} groups have enough evidence for a "
         "calibration figure; none of them is evidence of skill against the baseline, "
         "which is a separate comparison that has not been run on live data."

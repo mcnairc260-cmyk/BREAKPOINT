@@ -14,7 +14,7 @@ PY     := $(ENGINE)/.venv/bin/python
 BIN    := $(ENGINE)/.venv/bin
 
 .PHONY: help setup verify test lint format typecheck offline-suite web-verify \
-        conformance live-check collect-live live-report live-status \
+        conformance live-proof live-check collect-live live-report live-status \
         demo dev serve smoke stop clean
 
 help:
@@ -24,6 +24,7 @@ help:
 	@echo "serve         run the engine alone"
 	@echo ""
 	@echo "  the live path"
+	@echo "live-proof    THE ONE COMMAND: prove the system on a real market (~1h)"
 	@echo "live-check    connect to a real exchange and verify its prices (~30s)"
 	@echo "collect-live  collect real market data and forecast against it, for days"
 	@echo "live-status   collection progress and feed health"
@@ -100,6 +101,21 @@ smoke:
 # ---------------------------------------------------------------------------
 # The live path. These need a network that can reach an exchange.
 # ---------------------------------------------------------------------------
+
+# The whole proof, unattended, in one command. Start it and walk away.
+#
+# It takes about an hour and nearly all of that is waiting: thirty minutes before
+# the volatility model will speak at all, then twenty for the longer horizon to
+# expire. Neither can be shortened without weakening something — there is a
+# faster path through 60-second candles and it is deliberately not taken, because
+# those candles cannot feed the one-second bars the estimator reads.
+#
+# Exits 0 only on PROVEN: live venue data in, forecasts out, horizons expired,
+# outcomes recorded, survived a restart. Anything else exits non-zero, including
+# a run that completed perfectly against something that is not a venue.
+live-proof:
+	cd $(ENGINE) && .venv/bin/forecaster live-proof \
+		--json ../reports/live-proof.json $(ARGS)
 
 # Step one, always. Connects to the venue and verifies that every price it
 # reports means what the code thinks it means: symbol mapping, precision, both

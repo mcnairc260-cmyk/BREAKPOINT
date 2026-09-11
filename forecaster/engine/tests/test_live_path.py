@@ -237,3 +237,45 @@ def test_check_list_is_pure_and_flags_missing_data() -> None:
     checks = run_checks({}, requested=("BTC-USD",), transport="websocket")
     assert checks
     assert any(c.failed for c in checks)
+
+
+# ---------------------------------------------------------------------------
+# Provider lifecycle. The bug that cost a twenty-two-minute proof run.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.enable_socket
+@pytest.mark.allow_hosts(["127.0.0.1", "::1"])
+async def test_a_closed_provider_yields_nothing_and_says_so() -> None:
+    """Closing a provider is permanent, and anything reusing one gets silence.
+
+    `live_check` closes the feed it samples. The live proof then handed that same
+    object to its collector, which dutifully streamed nothing for twenty-two
+    minutes and reported "service level down" — a failure indistinguishable from
+    a dead venue, and one that would have cost an hour to find against a real
+    exchange rather than a local server.
+
+    The behaviour itself is correct: `close()` means closed. What was wrong was
+    the assumption that a provider could be used twice. This pins the behaviour
+    so the assumption cannot quietly come back.
+    """
+    async with CoinbaseConformanceVenue(rate_hz=400.0) as venue:
+        provider = CoinbaseProvider(ws_url=venue.ws_url, rest_url=venue.rest_url)
+        first = await asyncio.wait_for(_drain(provider, ("BTC-USD",), 20), timeout=30)
+        assert len(first) == 20, "the first use should work normally"
+
+        # `_drain` closed it. A second pass must end immediately, not hang and
+        # not reconnect.
+        second: list = []
+
+        async def reuse() -> None:
+            async for event in provider.stream(("BTC-USD",)):
+                second.append(event)
+
+        await asyncio.wait_for(reuse(), timeout=10)
+        assert second == [], "a closed provider produced events"
+
+        # A fresh provider against the same venue works, which is the fix.
+        replacement = CoinbaseProvider(ws_url=venue.ws_url, rest_url=venue.rest_url)
+        third = await asyncio.wait_for(_drain(replacement, ("BTC-USD",), 20), timeout=30)
+        assert len(third) == 20, "a new provider on the same venue must work"
