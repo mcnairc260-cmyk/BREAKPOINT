@@ -102,6 +102,47 @@ jobs:
           set -euo pipefail
           forecaster conformance --seconds 60 --output ../../conformance-report.json
 
+      # The live-proof procedure itself, at short horizons so CI stays quick.
+      # What is being checked is that the procedure runs end to end and reaches a
+      # verdict — and that a flawless run against something that is not a venue
+      # still exits non-zero. A `live-proof` that could exit 0 without an
+      # exchange would be worse than no command at all.
+      - name: Live proof reaches NOT LIVE without an exchange
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import asyncio, os, subprocess, sys
+          from forecaster.marketdata.conformance import CoinbaseConformanceVenue
+
+          async def main() -> int:
+              venue = CoinbaseConformanceVenue(rate_hz=120.0, history_s=2700.0)
+              await venue.start()
+              loop = asyncio.get_running_loop()
+              def run():
+                  return subprocess.run(
+                      ["forecaster", "live-proof", "--horizons", "20",
+                       "--minutes", "4", "--warmup-s", "15", "--interval", "8",
+                       "--ws-url", venue.ws_url, "--rest-url", venue.rest_url,
+                       "--json", "../../live-proof-ci.json"],
+                      capture_output=True, text=True, timeout=420)
+              result = await loop.run_in_executor(None, run)
+              await venue.stop()
+              print(result.stdout)
+              assert result.returncode != 0, "live-proof exited 0 without an exchange"
+              assert "VERDICT: NOT LIVE" in result.stdout, "expected a NOT LIVE verdict"
+              for stage in (
+                  "forecasts generated on live data",
+                  "forecasts expired and were scored",
+                  "predictions survive a restart",
+                  "no outcome recorded twice after restart",
+              ):
+                  assert f"[PASS] {stage}" in result.stdout, f"stage did not pass: {stage}"
+              print("ok: every stage passed and the verdict is still NOT LIVE")
+              return 0
+
+          sys.exit(asyncio.run(main()))
+          PY
+
       # The one guarantee that keeps the track record meaningful: a provider
       # pointed anywhere but a venue's own host must not be able to write rows
       # labelled LIVE. Asserted in tests too; asserted here because it is the
@@ -131,6 +172,7 @@ jobs:
           path: |
             verify-report.json
             conformance-report.json
+            live-proof-ci.json
           retention-days: 14
 
   web:

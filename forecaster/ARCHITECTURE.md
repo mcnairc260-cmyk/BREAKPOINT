@@ -35,7 +35,9 @@ forecaster/
 │       │   ├── livecheck.py        does this feed say what we think it says?
 │       │   ├── livereport.py       the real-market validation report
 │       │   └── livestatus.py       progress toward the learner threshold
-│       └── cli/                   simulate · collect · live-check · …
+│       └── cli/                   simulate · collect · live-proof · …
+│           ├── live_proof.py       the one command that proves a real market
+│           └── conformance_run.py  the same path, no exchange needed
 └── web/                          Next.js 15 · React 19 · TypeScript strict
     └── src/{core,components,app}/
 ```

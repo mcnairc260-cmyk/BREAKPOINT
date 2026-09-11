@@ -22,9 +22,20 @@
 > frames and restarts — `make conformance`, 11/11. That proves the **client**. It
 > proves nothing about the venue and nothing whatever about forecast accuracy.
 >
-> The gap is exactly one thing: network egress to an exchange. See
-> **[LIVE_VALIDATION.md](LIVE_VALIDATION.md)** for the three commands that close
-> it, and for the two defects this phase found in code that was already shipping.
+> The gap is exactly one thing: network egress to an exchange, and **one command**
+> closes it — `make live-proof`, about an hour, unattended. It ends in PROVEN,
+> NOT LIVE or BLOCKED and exits zero only for PROVEN, so a run against anything
+> that is not a venue can never be mistaken for a real-market result.
+>
+> That procedure has been run end to end at the **actual 300-second and
+> 1200-second horizons** against a wire-protocol server: 504 forecasts, 204
+> resolved with 0 void, both horizons scored, 0 monotonicity violations in 420
+> adjacent target pairs, all 504 surviving a restart with 0 duplicate outcomes —
+> and a verdict of NOT LIVE, because the endpoint was not an exchange. Against
+> Coinbase itself the same command reports BLOCKED with the 403.
+>
+> See **[LIVE_VALIDATION.md](LIVE_VALIDATION.md)** for the full output, for the
+> three defects found in code that was already shipping, and for what remains.
 
 ---
 

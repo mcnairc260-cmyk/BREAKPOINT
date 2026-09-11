@@ -56,19 +56,54 @@ tested against a real socket.
 
 ## 2. What to run on a normal network
 
-Three commands, in order. Nothing else is needed and nothing needs editing.
+**One command.** Start it, walk away, come back in an hour.
 
 ```bash
 cd forecaster
-make setup                    # once
+make setup        # once
+make live-proof   # ~1 hour, unattended, exits 0 only on PROVEN
+```
 
-# 1. Prove the venue. ~30 seconds. Exits non-zero if anything is wrong.
-make live-check
+That is the whole external procedure. It connects to Coinbase, verifies that
+every price it reports means what the code thinks it means, collects until the
+volatility model has enough history to speak, forecasts BTC and ETH at both
+horizons, waits for those forecasts to expire, resolves them from the venue's own
+prints, restarts itself against the same database to prove nothing is lost or
+double-counted, and writes `reports/live-proof.json`.
 
-# 2. Collect. Runs until you stop it. Leave it running for days.
+It ends in exactly one of three states:
+
+| verdict | meaning | exit |
+|---|---|---|
+| **PROVEN** | live venue data in, forecasts out, horizons expired, outcomes recorded, survived a restart | 0 |
+| **NOT LIVE** | every stage ran, against something that is not a venue endpoint — nothing is proven about a real market | 1 |
+| **BLOCKED** | no market data arrived, reported with the exact transport error | 1 |
+
+`make live-proof ARGS="--transport poll"` if WebSocket upgrades are blocked where
+you are. The polling transport is a real transport, not a stub.
+
+### Why it takes an hour
+
+Nearly all of it is waiting, and neither wait can be removed without weakening
+something:
+
+* **~30 minutes of warm-up.** The volatility model refuses to forecast until it
+  has seen thirty minutes of market. A shortcut exists — Coinbase publishes
+  60-second candles going back hours — and it is deliberately not taken, because
+  those candles cannot feed the one-second bars the estimator actually reads, and
+  widening the estimator to accept coarser data so that a demo finishes sooner
+  would weaken the safeguard it exists to enforce. The refusal is the product
+  working.
+* **~20 minutes for the longer horizon to expire.** A 20-minute forecast cannot
+  be resolved in less than 20 minutes. There is no version of this that is fast.
+
+### Afterwards, for an actual track record
+
+One run proves the application works. It does not produce evidence about forecast
+quality — for that the collector has to run for days:
+
+```bash
 FORECASTER_PROVIDER=live FORECASTER_VENUE=coinbase make collect-live
-
-# 3. At any point, from another terminal:
 make live-status              # is it running, and how far along
 make live-report              # the validation report
 ```
@@ -77,6 +112,10 @@ make live-report              # the validation report
 are; the polling transport is a real transport, not a stub.
 
 ### What `live-check` actually verifies
+
+`live-proof` runs these checks as its second stage; `make live-check` runs them
+alone in about thirty seconds, which is the right thing to try first if you are
+not sure the network will cooperate.
 
 Not "did bytes arrive". For each of BTC-USD and ETH-USD it checks sixteen
 things and prints the number it observed for every one: symbol mapping, trade
@@ -122,7 +161,66 @@ observations as three separate numbers.
 
 ---
 
-## 3. What was proved here, without a venue
+## 3. The proof procedure, run at the real product horizons
+
+`make live-proof` has been run end to end against the conformance server at the
+**actual 300-second and 1200-second horizons** — not shortened ones. Twenty-two
+minutes of wall clock, because a 20-minute forecast cannot resolve any sooner:
+
+```
+[FAIL] endpoint is a real venue              data_source=SIMULATED  (not a venue host)
+[PASS] live prices verified                  32 checks passed, 0 failed, 12,517 events
+       BTC-USD: 79,093.24  bid 79,089.71 / ask 79,097.62  mid 79,093.67  spread 1.00 bps
+       ETH-USD:  3,103.09  bid  3,102.81 / ask  3,103.12  mid  3,102.97  spread 1.00 bps
+[PASS] real BTC and ETH trades received      trades for BTC-USD, ETH-USD
+[PASS] forecasts generated                   504 forecasts from 84 sampling instants
+[PASS] forecasts expired and were scored     204 resolved, 0 void
+[PASS] every horizon produced a resolved forecast   resolved at 300s, 1200s
+[PASS] probability never rises with the target      0 violations in 420 adjacent pairs
+[PASS] predictions survive a restart         504 of 504 present, chain intact
+[PASS] no outcome recorded twice             204 before, 204 after a second pass, 0 duplicates
+[PASS] validation report generated
+
+VERDICT: NOT LIVE                                                    exit 1
+```
+
+Per cell: BTC 300s 126 generated / 96 resolved, ETH 300s 126 / 96, BTC 1200s
+126 / 6, ETH 1200s 126 / 6. The 20-minute cells resolve fewer because the run was
+only just longer than one 20-minute horizon — which is the honest arithmetic, not
+a fault.
+
+**The verdict is NOT LIVE and the exit code is 1**, because the endpoint was not
+a venue. Every other stage passed. That is the distinction this command exists to
+enforce: a flawless run against something that is not an exchange proves the
+software and proves nothing about a market, and it must never be able to exit
+zero.
+
+Run against the real Coinbase endpoint, the same command reports:
+
+```
+[PASS] endpoint is a real venue      data_source=LIVE
+[FAIL] live prices verified          0 checks passed, 2 failed, 0 events
+                                     — ProviderError: coinbase ticker request failed: 403 Forbidden
+VERDICT: BLOCKED                                                     exit 1
+```
+
+Note the first line inverts. Against Coinbase the endpoint *is* a venue and the
+data cannot arrive; against the conformance server the data arrives and the
+endpoint is not a venue. Neither can be mistaken for the other, and neither
+exits zero.
+
+### A bug this found, which is why it was run rather than reasoned about
+
+The first attempt made **zero forecasts in twenty-two minutes** and reported
+"service level down". `live_check` closes the feed it samples — correctly — and
+the proof then handed that same closed object to its collector, which streamed
+nothing. Against a real exchange this would have been indistinguishable from a
+dead venue and would have cost an hour to diagnose. Each stage now opens its own
+connection, and a test pins the behaviour so the assumption cannot return.
+
+---
+
+## 4. What was proved here, without a venue
 
 A server that speaks Coinbase's WebSocket and REST wire protocol runs on
 `127.0.0.1`, and the **unmodified production adapter** connects to it over a real
@@ -183,10 +281,11 @@ the behaviour changes.
 
 ---
 
-## 4. Two defects found and fixed during this phase
+## 5. Three defects found and fixed, none of which announced itself
 
-Both were pre-existing, both were reachable in production, and neither would have
-announced itself.
+The first two were pre-existing and reachable in production. The third was in the
+proof procedure itself and was found only by running it for twenty-two minutes
+rather than reasoning about it.
 
 ### The append-only log forked under concurrency
 
@@ -217,9 +316,22 @@ poll look fresher than it is. Present in all three adapters; fixed in all three.
 Found by a test asserting `received_ns >= exchange_ns`, which is the kind of
 invariant that is obvious once written and invisible until then.
 
+### The live proof reused a provider it had already closed
+
+`live_check` closes the feed it samples, which is correct: it owns that
+connection's lifecycle. The proof then passed the same object to its collector,
+whose stream ended immediately because `close()` is permanent. The result was a
+run that collected for twenty-two minutes, produced zero forecasts, and reported
+"service level down" — indistinguishable from a dead exchange.
+
+Against Coinbase that would have burned an hour before anyone could tell whether
+the venue or the code was at fault. Each stage now opens its own connection, and
+a test asserts that a closed provider yields nothing and that a fresh one against
+the same venue works, so the assumption cannot come back quietly.
+
 ---
 
-## 5. Live and simulated cannot be mixed
+## 6. Live and simulated cannot be mixed
 
 Section 7 of the brief asks that real data never mix with simulation. The
 previous design relied on each adapter asserting its own label, and every adapter
@@ -249,7 +361,7 @@ real-market track record"*, which is the correct answer.
 
 ---
 
-## 6. The learner is still quarantined, and the threshold is unchanged
+## 7. The learner is still quarantined, and the threshold is unchanged
 
 `MIN_INDEPENDENT_FOR_ML = 750` **non-overlapping** observations, per symbol and
 horizon. It was not lowered for this phase and must not be.
@@ -272,7 +384,7 @@ are six views of one future price.
 
 ---
 
-## 7. The rule that governs the first live run
+## 8. The rule that governs the first live run
 
 **The first live collection period is evidence, not a tuning playground.**
 
@@ -288,16 +400,24 @@ different thing. Fix it, and write down what it was.
 
 ---
 
-## 8. What would make this COMPLETE
+## 9. What would make this COMPLETE
 
-Run the three commands in section 2 on a network that can reach Coinbase, then:
+On a network that can reach Coinbase:
 
-1. `make live-check` passes with real prices for BTC-USD and ETH-USD.
-2. `make collect-live` runs for at least a few days.
-3. `make live-report` shows resolved live forecasts in all four cells
-   (BTC 5m, BTC 20m, ETH 5m, ETH 20m).
-4. Paste that report into section 9 below, and update `VALIDATION.md`'s banner —
-   **only then**, and only to say what the numbers actually support.
+1. `make live-proof` ends in **PROVEN** and exits 0. That is the whole of
+   REAL-MARKET VALIDATION for the application: real BTC and ETH data in, real
+   forecasts out, both horizons expired, outcomes recorded from the venue's own
+   prints, survived a restart. Keep `reports/live-proof.json`.
+2. Paste that verdict block into section 10 below.
+3. Update `VALIDATION.md`'s banner — **only then**, and only to say that the
+   application has been shown to work on live market data.
+
+Then, separately, for a track record rather than a proof:
+
+4. `make collect-live` runs for at least a few days.
+5. `make live-report` shows resolved live forecasts in all four cells
+   (BTC 5m, BTC 20m, ETH 5m, ETH 20m) with enough independent observations that
+   it stops labelling them INSUFFICIENT.
 
 Even at that point the honest claim is *"the application works on live market
 data and its probabilities are calibrated to within X over N observations"*. It
@@ -306,6 +426,6 @@ second one is much stronger, and nothing in this repository supports it.
 
 ---
 
-## 9. Live results
+## 10. Live results
 
 *(empty — no live forecasts have been made)*

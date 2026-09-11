@@ -69,10 +69,29 @@ To run the whole pipeline end to end — generate a market, train, backtest:
 make demo      # ~45 minutes; writes reports/backtest.json
 ```
 
-To point it at a real exchange, from a machine with ordinary network access:
+To prove it against a real exchange, from a machine with ordinary network access,
+there is one command:
 
 ```bash
-make live-check                               # ~30s: verifies the venue's prices
+make live-proof     # ~1 hour, unattended, exits 0 only on PROVEN
+```
+
+It connects, verifies every price the venue reports, collects until the
+volatility model has enough history to speak, forecasts BTC and ETH at both
+horizons, waits for them to expire, resolves them from the venue's own prints,
+restarts against the same database to show nothing is lost or double-counted, and
+writes `reports/live-proof.json`. It ends in one of three states — **PROVEN**,
+**NOT LIVE** (ran fine, but not against a venue) or **BLOCKED** (no data arrived,
+with the exact transport error) — and only PROVEN exits zero.
+
+Most of the hour is waiting: thirty minutes before the volatility model will
+speak at all, then twenty for the longer horizon to expire. Neither is padding
+and neither can be shortened without weakening a safeguard.
+
+For an actual track record rather than a proof that it works, collect for days:
+
+```bash
+make live-check                               # ~30s: the price checks alone
 FORECASTER_PROVIDER=live make collect-live    # then collect, for days
 make live-status                              # progress and feed health
 make live-report                              # the validation report
@@ -127,6 +146,7 @@ much is, and that is what makes the product possible.
 | `forecaster evaluate` | Score forecasts whose horizon has passed. |
 | `forecaster report` | Performance statistics, grouped and caveated. |
 | `forecaster serve` | Run the API, the collector and the evaluator. |
+| `forecaster live-proof` | The whole live proof in one command. Exits 0 only on PROVEN. |
 | `forecaster live-check` | Connect to a real venue and verify every price it reports. |
 | `forecaster collect-live` | Collect live data and forecast against it, unattended. |
 | `forecaster live-status` | Feed health and progress toward the learner threshold. |
