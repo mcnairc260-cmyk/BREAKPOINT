@@ -714,6 +714,115 @@ def cmd_live_status(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def cmd_probe_venues(args: argparse.Namespace) -> int:
+    """Which exchanges can this machine actually reach, and at which layer does it fail?"""
+    import json as _json
+
+    from forecaster.marketdata.venues.catalog import VENUES, first_usable, probe_all
+
+    _, install_quiet = _quiet_transport_noise()
+
+    async def go() -> Any:
+        return await _with_quiet(install_quiet, probe_all(VENUES, include_ws=not args.no_ws))
+
+    probes = asyncio.run(go())
+
+    def mark(layer: Any) -> str:
+        if layer is None:
+            return "-"
+        return "ok" if layer.ok else "FAIL"
+
+    print("")
+    print("  VENUE REACHABILITY")
+    print(f"  {'-' * 86}")
+    print(
+        f"  {'venue':<12}{'dns':<6}{'tcp':<6}{'tls':<6}{'rest':<16}{'websocket':<16}"
+        f"{'adapter':<9}usable"
+    )
+    print(f"  {'-' * 86}")
+    for probe in probes:
+        rest = probe.rest
+        if probe.http_status:
+            rest_text = f"HTTP {probe.http_status}"
+        elif rest is not None:
+            rest_text = rest.error_class or "FAIL"
+        else:
+            rest_text = "-"
+        ws = probe.websocket
+        if ws is None:
+            ws_text = "-"
+        elif ws.ok:
+            ws_text = "ok"
+        else:
+            ws_text = ws.error_class or "FAIL"
+        print(
+            f"  {probe.venue:<12}{mark(probe.dns):<6}{mark(probe.tcp):<6}{mark(probe.tls):<6}"
+            f"{rest_text:<16}{ws_text[:15]:<16}{('yes' if probe.adapter else 'no'):<9}"
+            f"{'YES' if probe.usable else 'no'}"
+        )
+    print("")
+
+    for probe in probes:
+        if probe.usable and probe.sample:
+            print(f"  {probe.venue}: {probe.sample}")
+
+    blocked = [p for p in probes if p.blocked_by_proxy]
+    intercepted = [p for p in probes if p.tls_intercepted]
+    if blocked:
+        resolvable = [p for p in blocked if p.dns and p.dns.ok]
+        print("")
+        print(f"  {len(blocked)} of {len(probes)} venues were refused by an egress policy.")
+        if len(resolvable) == len(blocked):
+            print("  Every one of their hostnames resolves, so this is not DNS and not the")
+            print("  venues being down. Something between this machine and the internet is")
+            print("  refusing on its behalf. That is a network policy, not a fault here.")
+    if intercepted:
+        issuers = sorted(
+            {
+                probe.tls.detail.split("issued by ")[-1].split(" —")[0]
+                for probe in intercepted
+                if probe.tls
+            }
+        )
+        print("")
+        print(f"  {len(intercepted)} venues completed a TLS handshake with something that is")
+        print(f"  NOT the venue. Certificates were issued by: {', '.join(issuers)}")
+        print("  So there is no direct route either — every path out of this machine,")
+        print("  proxied or not, ends at the same gateway. Nothing here can reach an")
+        print("  exchange by any means.")
+
+    usable = first_usable(probes)
+    print("")
+    if usable is not None:
+        print(f"  USE: {usable.venue}   (public market data arrived and an adapter exists)")
+        print(f'       make live-proof ARGS="--venue {usable.venue}"')
+    else:
+        answered = [p for p in probes if p.usable]
+        if answered:
+            print(
+                f"  {answered[0].venue} answered but has no adapter yet. "
+                "Reachable is not the same as wired up."
+            )
+        else:
+            print("  NO VENUE IS REACHABLE from this machine. Nothing here can produce")
+            print("  live market data. Run this same command on an unrestricted network.")
+    print("")
+
+    if args.json:
+        Path(args.json).parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "generated": iso(now_ns()),
+            "venues_probed": len(probes),
+            "usable_with_adapter": usable.venue if usable else None,
+            "blocked_by_egress_policy": [p.venue for p in blocked],
+            "probes": [p.to_dict() for p in probes],
+        }
+        Path(args.json).write_text(_json.dumps(payload, indent=2))
+        print(f"  written to {args.json}")
+        print("")
+    return 0 if usable is not None else 1
+
+
 def cmd_live_proof(args: argparse.Namespace) -> int:
     """The one command that proves the system on a real market, or says why not."""
     from forecaster.cli.live_proof import run_live_proof
@@ -731,6 +840,7 @@ def cmd_live_proof(args: argparse.Namespace) -> int:
         output=args.json,
         ws_url=args.ws_url,
         rest_url=args.rest_url,
+        auto=args.auto,
         quiet_install=install_quiet,
     )
 
@@ -859,6 +969,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_live_status)
 
+    p = sub.add_parser(
+        "probe-venues", help="which exchanges can this machine reach, and where does it fail"
+    )
+    p.add_argument("--json", default=None)
+    p.add_argument("--no-ws", action="store_true", help="skip the WebSocket upgrade probe")
+    p.set_defaults(func=cmd_probe_venues)
+
     p = sub.add_parser("live-proof", help="the one command that proves the system on a real market")
     p.add_argument("--venue", default=None)
     p.add_argument("--symbols", default=None)
@@ -877,6 +994,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--interval", type=float, default=None, help=argparse.SUPPRESS)
     p.add_argument("--json", default=None)
+    p.add_argument(
+        "--auto",
+        action="store_true",
+        help="probe venues first and use the first one that answers with an adapter",
+    )
     p.add_argument("--ws-url", default=None, help=argparse.SUPPRESS)
     p.add_argument("--rest-url", default=None, help=argparse.SUPPRESS)
     p.set_defaults(func=cmd_live_proof)
