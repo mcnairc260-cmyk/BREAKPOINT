@@ -129,6 +129,32 @@ class Proof:
     def is_live(self) -> bool:
         return self.data_source == DataSource.LIVE.value
 
+    def scope(self) -> str:
+        """What this run is, in one sentence, keyed off what actually happened.
+
+        Not off the endpoint alone. An earlier version said "Real venue market
+        data" whenever the hostname was a venue — including on runs where nothing
+        arrived at all, which is the opposite of true and exactly the sentence
+        someone would quote.
+        """
+        verdict = self.verdict()
+        if verdict == VERDICT_PROVEN:
+            return "Real venue market data, forecast and resolved end to end."
+        if verdict == VERDICT_BLOCKED:
+            return (
+                "No market data was received. Nothing was forecast and nothing is "
+                "proven either way."
+            )
+        if verdict == VERDICT_NOT_LIVE:
+            return (
+                "NOT real market data — this run did not talk to a venue endpoint, "
+                "so nothing here is evidence about a real market."
+            )
+        return (
+            "The procedure ran and at least one check failed. See the stages; this "
+            "is not a proof of anything."
+        )
+
     def verdict(self) -> str:
         if self.error and self.forecasts == 0 and not self.symbols_with_trades:
             return VERDICT_BLOCKED
@@ -141,12 +167,7 @@ class Proof:
     def to_dict(self) -> dict[str, Any]:
         return {
             "verdict": self.verdict(),
-            "scope": (
-                "Real venue market data."
-                if self.is_live
-                else "NOT real market data — this run did not talk to a venue endpoint, "
-                "so nothing here is evidence about a real market."
-            ),
+            "scope": self.scope(),
             "venue": self.venue,
             "transport": self.transport,
             "endpoint": self.endpoint,
@@ -433,6 +454,32 @@ async def _run(
     return proof
 
 
+async def _choose_venue(preferred: str | None) -> tuple[str | None, list[Any], str]:
+    """Find a venue that actually answers, preferring the one asked for.
+
+    Run before anything else when `--auto` is given. On a restricted network this
+    turns an hour of waiting for a feed that will never arrive into fifteen
+    seconds and a clear sentence about why.
+    """
+    from forecaster.marketdata.venues.catalog import VENUES, first_usable, probe_all
+
+    order = VENUES
+    if preferred:
+        order = tuple(sorted(VENUES, key=lambda spec: (spec.name != preferred, VENUES.index(spec))))
+    probes = await probe_all(order, include_ws=False)
+    usable = first_usable(probes)
+    if usable is None:
+        reachable = [p.venue for p in probes if p.usable]
+        if reachable:
+            return (
+                None,
+                probes,
+                (f"{', '.join(reachable)} answered but has no adapter in this build"),
+            )
+        return None, probes, "no venue answered — see `forecaster probe-venues`"
+    return usable.venue, probes, f"{usable.venue} answered with real public market data"
+
+
 def run_live_proof(
     *,
     venue: str | None = None,
@@ -445,6 +492,7 @@ def run_live_proof(
     output: str | None = None,
     ws_url: str | None = None,
     rest_url: str | None = None,
+    auto: bool = False,
     quiet_install: Any = None,
 ) -> int:
     """Run the whole proof. Returns a process exit code: 0 only for PROVEN."""
@@ -455,6 +503,23 @@ def run_live_proof(
     config = load_config()
     venue = venue or config.venue
     symbols = symbols or ("BTC-USD", "ETH-USD")
+
+    if auto and not (ws_url or rest_url):
+        print("")
+        print("  checking which venues this machine can reach…", flush=True)
+        chosen, _probes, reason = asyncio.run(_choose_venue(venue))
+        print(f"  {reason}")
+        if chosen is None:
+            print("")
+            print("  VERDICT: BLOCKED")
+            print("")
+            print("  No exchange is reachable from this machine, so there is nothing to")
+            print("  prove against. `forecaster probe-venues` shows which layer fails for")
+            print("  each venue. Run this on a network without an egress policy.")
+            print("")
+            return 1
+        venue = chosen
+
     overrides: dict[str, str] = {}
     if ws_url:
         overrides["ws_url"] = ws_url
@@ -523,4 +588,65 @@ def run_live_proof(
         print(f"  written to {output}")
         print("")
 
+    print(summary_block(result))
     return 0 if verdict == VERDICT_PROVEN else 1
+
+
+def summary_block(proof: Proof) -> str:
+    """A self-contained block to copy out of the terminal.
+
+    Everything someone needs to judge the run, in one paste, with no reference to
+    anything that is not in it. The verdict and the scope line come first so that
+    a block quoted out of context still says what it is — a NOT LIVE run pasted
+    without its header would otherwise read as a real-market result, which is the
+    one misreading this whole procedure exists to prevent.
+    """
+    data = proof.to_dict()
+    cells = data["by_symbol_horizon"] or {}
+    lines = [
+        "```",
+        "FORECASTER LIVE MARKET PROOF",
+        f"verdict          : {data['verdict']}",
+        f"scope            : {data['scope']}",
+        f"venue            : {data['venue']} over {data['transport']}",
+        f"data source      : {data['data_source'].upper()}",
+        f"started          : {data['started']}",
+        f"finished         : {data['finished']}  ({data['duration_s'] / 60:.1f} min)",
+        f"real BTC received: {data['real_btc_received']}",
+        f"real ETH received: {data['real_eth_received']}",
+        f"forecasts        : {data['forecasts_generated']} generated, "
+        f"{data['forecasts_resolved']} resolved, {data['forecasts_void']} void",
+        f"restart recovery : {'ok' if data['restart_recovery_ok'] else 'NOT VERIFIED'}"
+        f"  (duplicate outcomes: {data['duplicate_outcomes']})",
+        f"monotonicity     : {data['monotonicity_violations']} violations",
+        f"reconnects       : {data['reconnects']}",
+    ]
+    if cells:
+        lines.append("per cell         :")
+        for key, counts in sorted(cells.items()):
+            symbol, horizon = key.split("|")
+            lines.append(
+                f"  {symbol} {int(horizon) // 60}m: "
+                f"{counts['generated']} generated, {counts['resolved']} resolved"
+            )
+    lines.append("stages           :")
+    for stage in data["stages"]:
+        mark = "PASS" if stage["ok"] else "FAIL"
+        lines.append(f"  [{mark}] {stage['stage']} — {stage['detail']}")
+    if data["error"]:
+        lines.append(f"error            : {data['error']}")
+    lines.append("")
+    if data["verdict"] == VERDICT_PROVEN:
+        lines.append("This proves operational correctness on live market data. It does NOT")
+        lines.append("show forecast skill: that needs days of collection and is measured")
+        lines.append("separately by `forecaster live-report`. Two different claims.")
+    elif data["verdict"] == VERDICT_NOT_LIVE:
+        lines.append("Nothing here is evidence about a real market. The software works;")
+        lines.append("the endpoint was not an exchange.")
+    elif data["verdict"] == VERDICT_BLOCKED:
+        lines.append("No exchange was reachable, so nothing was proven either way. Run")
+        lines.append("`forecaster probe-venues` to see which layer fails for each venue.")
+    else:
+        lines.append("At least one check failed. This is not a proof; see the stages above.")
+    lines.append("```")
+    return "\n".join(lines)

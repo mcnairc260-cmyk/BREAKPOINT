@@ -143,6 +143,31 @@ jobs:
           sys.exit(asyncio.run(main()))
           PY
 
+      # A venue with an adapter whose hostnames are missing from the LIVE
+      # allowlist would connect to the real exchange and label the data
+      # SIMULATED — silently, into an append-only log, with no error anywhere.
+      # A week of real market data would be unrecoverable. Asserted in the suite
+      # and again here, because it is cheap and the failure is permanent.
+      - name: Every adapter-backed venue is on the LIVE allowlist
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from urllib.parse import urlsplit
+
+          from forecaster.marketdata.venues.catalog import VENUES
+          from forecaster.marketdata.venues.endpoints import VENUE_HOSTS
+
+          for spec in VENUES:
+              if not spec.adapter:
+                  continue
+              family = "binance" if spec.name.startswith("binance") else spec.name
+              assert family in VENUE_HOSTS, f"{spec.name}: no allowlist entry"
+              for url in (spec.rest_url, spec.ws_url):
+                  host = urlsplit(url).hostname
+                  assert host in VENUE_HOSTS[family], f"{host} missing from VENUE_HOSTS"
+              print(f"ok: {spec.name}")
+          PY
+
       # The one guarantee that keeps the track record meaningful: a provider
       # pointed anywhere but a venue's own host must not be able to write rows
       # labelled LIVE. Asserted in tests too; asserted here because it is the

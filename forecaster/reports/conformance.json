@@ -12,7 +12,7 @@
     {
       "name": "live price checks pass over a real socket",
       "ok": true,
-      "detail": "32 checks, 1,496 events"
+      "detail": "32 checks, 1,498 events"
     },
     {
       "name": "dirty feed survived and bad data rejected",

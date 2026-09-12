@@ -14,7 +14,7 @@ PY     := $(ENGINE)/.venv/bin/python
 BIN    := $(ENGINE)/.venv/bin
 
 .PHONY: help setup verify test lint format typecheck offline-suite web-verify \
-        conformance live-proof live-check collect-live live-report live-status \
+        conformance live-proof probe-venues live-check collect-live live-report live-status \
         demo dev serve smoke stop clean
 
 help:
@@ -25,6 +25,8 @@ help:
 	@echo ""
 	@echo "  the live path"
 	@echo "live-proof    THE ONE COMMAND: prove the system on a real market (~1h)"
+	@echo "              make live-proof PROVIDER=kraken   picks a specific venue"
+	@echo "probe-venues  which exchanges can this machine reach (~15s)"
 	@echo "live-check    connect to a real exchange and verify its prices (~30s)"
 	@echo "collect-live  collect real market data and forecast against it, for days"
 	@echo "live-status   collection progress and feed health"
@@ -113,9 +115,22 @@ smoke:
 # Exits 0 only on PROVEN: live venue data in, forecasts out, horizons expired,
 # outcomes recorded, survived a restart. Anything else exits non-zero, including
 # a run that completed perfectly against something that is not a venue.
+# PROVIDER=kraken picks a venue; with neither PROVIDER nor --venue it probes and
+# uses the first exchange that answers with an adapter, which is what you want on
+# a network you do not control.
+PROVIDER ?=
+LIVE_PROOF_VENUE := $(if $(PROVIDER),--venue $(PROVIDER),--auto)
+
 live-proof:
-	cd $(ENGINE) && .venv/bin/forecaster live-proof \
+	cd $(ENGINE) && .venv/bin/forecaster live-proof $(LIVE_PROOF_VENUE) \
 		--json ../reports/live-proof.json $(ARGS)
+
+# Fifteen seconds, and it answers "is it me, the network, or the venue?" for
+# every exchange at once — DNS, TCP, TLS, REST and the WebSocket upgrade. Run it
+# before anything else when market data will not arrive.
+probe-venues:
+	cd $(ENGINE) && .venv/bin/forecaster probe-venues \
+		--json ../reports/venue-reachability.json $(ARGS)
 
 # Step one, always. Connects to the venue and verifies that every price it
 # reports means what the code thinks it means: symbol mapping, precision, both

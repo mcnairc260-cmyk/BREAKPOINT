@@ -13,63 +13,111 @@
 
 ---
 
-## 1. What was actually tried
+## 1. Every reputable venue was tried, and the blockage is environmental
 
-Coinbase first, then Kraken, then Binance, over both transports. Every attempt,
-verbatim:
-
-```
-$ forecaster live-check --seconds 30 --transport websocket
-  ERROR: no market data in 25s.
-  last provider error: InvalidProxyStatus: proxy rejected connection: HTTP 403
-
-$ forecaster live-check --seconds 30 --transport poll
-  ERROR: no market data in 23s.
-  last provider error: ProviderError: coinbase ticker request failed: 403 Forbidden
-
-$ forecaster live-check --venue kraken --transport poll
-  ERROR: last provider error: ProxyError: 403 Forbidden
-
-$ forecaster live-check --venue binance --transport poll
-  ERROR: last provider error: ProxyError: 403 Forbidden
-```
-
-At the socket level:
+Eight exchanges, five layers each, probed programmatically:
 
 ```
-$ curl -v https://api.exchange.coinbase.com/products/BTC-USD/ticker
-> CONNECT api.exchange.coinbase.com:443 HTTP/1.1
-< HTTP/1.1 403 Forbidden
+$ forecaster probe-venues
+
+  venue       dns   tcp   tls   rest            websocket       adapter  usable
+  kraken      ok    ok    FAIL  ProxyError      InvalidProxySta yes      no
+  coinbase    ok    ok    FAIL  ProxyError      InvalidProxySta yes      no
+  binance     ok    ok    FAIL  ProxyError      ConnectionReset yes      no
+  binance.us  ok    ok    FAIL  ProxyError      ConnectionReset yes      no
+  bitstamp    ok    ok    FAIL  ProxyError      InvalidProxySta no       no
+  gemini      ok    ok    FAIL  ProxyError      InvalidProxySta no       no
+  okx         ok    ok    FAIL  ProxyError      ConnectionReset no       no
+  bitfinex    ok    ok    FAIL  ProxyError      InvalidProxySta no       no
 ```
 
-This is an organisation egress policy, not a bug, a rate limit, or a missing
-credential. The environment's own documentation says not to route around a policy
-denial, so it was not routed around. `api.exchange.coinbase.com`,
-`ws-feed.exchange.coinbase.com`, `api.kraken.com`, `ws.kraken.com` and
-`api.binance.com` are all refused identically.
+Every hostname resolves. Every TCP connection to port 443 succeeds. Every REST
+request returns **HTTP 403** and every WebSocket upgrade is refused.
 
-**The gap is therefore exactly one thing: network egress to an exchange.** Every
-other part of real-market validation is implemented, and most of it is now
-tested against a real socket.
+### The part that took interpreting
+
+TCP succeeds and TLS completes. Read quickly, that says the exchanges are
+reachable and something higher up is at fault. It says the opposite.
+
+Inspecting the certificates from those handshakes:
+
+```
+api.kraken.com             subject *.kraken.com
+                           issuer  Anthropic / Egress Gateway SDS Issuing CA (production)
+api.exchange.coinbase.com  subject *.exchange.coinbase.com
+                           issuer  Anthropic / Egress Gateway SDS Issuing CA (production)
+api.gemini.com             subject *.gemini.com
+                           issuer  Anthropic / Egress Gateway SDS Issuing CA (production)
+```
+
+No public CA signed any of them. The connections terminate at the environment's
+own egress gateway, which presents a substituted certificate for whatever
+hostname was asked for and then refuses the request. **There is no direct route
+either** — proxied or not, every path out of this machine ends at the same
+gateway. Nothing here can reach an exchange by any means, and no choice of venue,
+transport or port changes that.
+
+`probe-venues` now reports this rather than "tls ok", because "tls ok" invites
+exactly the wrong conclusion — here, and on anyone's corporate network doing the
+same thing.
+
+The full record is in `reports/venue-reachability.json`.
+
+### Providers tried, in the priority order requested
+
+| # | venue | adapter | REST | WebSocket | verdict |
+|---|---|---|---|---|---|
+| 1 | Kraken | yes | 403 | refused | blocked at gateway |
+| 2 | Binance | yes | 403 | reset | blocked at gateway |
+| 2 | Binance.US | yes | 403 | reset | blocked at gateway |
+| 3 | Bitstamp | no | 403 | refused | blocked at gateway |
+| 4 | Gemini | no | 403 | refused | blocked at gateway |
+| 5 | OKX | no | 403 | reset | blocked at gateway |
+| 6 | Bitfinex | no | 403 | refused | blocked at gateway |
+| — | Coinbase | yes | 403 | refused | blocked at gateway |
+
+Writing adapters for Bitstamp, Gemini, OKX or Bitfinex would not have helped: all
+four are refused at the same layer as the three that already have adapters. An
+adapter cannot fix a connection that never opens, and writing four of them to
+discover that would have been work done in the wrong order.
 
 ---
 
 ## 2. What to run on a normal network
 
-**One command.** Start it, walk away, come back in an hour.
+**One command**, and it needs nothing installed beyond Python 3.11 or newer — no
+virtual environment, no `make`, no `pip install`, no API key. It works the same
+on Windows, macOS and Linux.
 
-```bash
-cd forecaster
-make setup        # once
-make live-proof   # ~1 hour, unattended, exits 0 only on PROVEN
+```
+python scripts/live_proof.py
 ```
 
-That is the whole external procedure. It connects to Coinbase, verifies that
-every price it reports means what the code thinks it means, collects until the
-volatility model has enough history to speak, forecasts BTC and ETH at both
-horizons, waits for those forecasts to expire, resolves them from the venue's own
-prints, restarts itself against the same database to prove nothing is lost or
-double-counted, and writes `reports/live-proof.json`.
+That script creates its own environment, installs the engine, probes every
+exchange it knows, picks the first that answers and has an adapter, and runs the
+whole proof against it. It writes `reports/live-proof.json` and prints a block to
+copy. `make` is deliberately not required: the machine that can reach an exchange
+is usually not the machine the code was written on, and a stock Windows install
+has no `make`.
+
+If you already have the project set up, the make targets do the same things:
+
+```bash
+make probe-venues                  # ~15s: which exchanges can this machine reach
+make live-proof                    # ~1h: probes, picks a venue, proves it
+make live-proof PROVIDER=kraken    # ~1h: a specific venue
+```
+
+**Run `probe-venues` first if anything is doubtful.** Fifteen seconds, and it
+answers "is it me, the network, or the venue?" per exchange and per layer instead
+of leaving it to guesswork.
+
+That is the whole external procedure. It verifies that every price the venue
+reports means what the code thinks it means, collects until the volatility model
+has enough history to speak, forecasts BTC and ETH at both horizons across six
+target distances, waits for those forecasts to expire, resolves them from the
+venue's own prints, restarts itself against the same database to prove nothing is
+lost or double-counted, and writes `reports/live-proof.json`.
 
 It ends in exactly one of three states:
 

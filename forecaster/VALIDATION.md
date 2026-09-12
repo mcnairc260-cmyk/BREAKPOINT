@@ -6,11 +6,18 @@
 > made. No live forecast has been resolved.** Every number in this document was
 > produced on **simulated, replayed or conformance** data.
 >
-> The environment this system was built in cannot reach any exchange. Re-verified
-> at the start of the real-market validation phase: Coinbase, Kraken and Binance
-> are each refused with `HTTP 403` at the egress proxy, on both the WebSocket and
-> the REST transport. Bitstamp, Gemini, OKX, Bybit, Bitfinex, CoinGecko, CoinCap,
-> CryptoCompare, Finnhub, AlphaVantage and Yahoo Finance were blocked too.
+> The environment this system was built in cannot reach any exchange. Eight venues
+> were probed at five layers each — Kraken, Coinbase, Binance, Binance.US,
+> Bitstamp, Gemini, OKX and Bitfinex. Every hostname resolves, every TCP
+> connection succeeds, every REST request returns `HTTP 403` and every WebSocket
+> upgrade is refused.
+>
+> The TLS handshakes also succeed, which reads as "the venues are reachable" and
+> is the opposite of the truth: the certificates are issued by the environment's
+> own egress gateway, not by any public CA. Every route out of this machine,
+> proxied or not, terminates there. No choice of venue, transport or port changes
+> it. `forecaster probe-venues` reports this, and `reports/venue-reachability.json`
+> is the record.
 >
 > That means the results here show the **pipeline is correct**. They are not
 > evidence about real markets, and none of them should be quoted as if they were.

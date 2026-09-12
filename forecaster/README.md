@@ -70,11 +70,19 @@ make demo      # ~45 minutes; writes reports/backtest.json
 ```
 
 To prove it against a real exchange, from a machine with ordinary network access,
-there is one command:
+there is one command — and it needs only Python 3.11+, no venv, no `make`, no key:
 
-```bash
-make live-proof     # ~1 hour, unattended, exits 0 only on PROVEN
 ```
+python scripts/live_proof.py     # ~1 hour, unattended, exits 0 only on PROVEN
+```
+
+If the project is already set up, `make live-proof` does the same, and
+`make live-proof PROVIDER=kraken` picks a venue. When market data will not
+arrive, `make probe-venues` answers "is it me, the network, or the venue?" for
+every exchange at once in about fifteen seconds — DNS, TCP, TLS, REST and the
+WebSocket upgrade, separately, so the answer is a table rather than a guess. It
+also notices when a TLS handshake succeeds against something that is not the
+venue, which is what a corporate proxy looks like from the inside.
 
 It connects, verifies every price the venue reports, collects until the
 volatility model has enough history to speak, forecasts BTC and ETH at both
