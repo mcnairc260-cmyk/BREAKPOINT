@@ -85,6 +85,25 @@ discover that would have been work done in the wrong order.
 
 ## 2. What to run on a normal network
 
+### The easiest way: one button, nothing installed
+
+**GitHub → Actions → "Live market proof" → Run workflow.**
+
+A GitHub runner has ordinary internet, six hours of budget and no egress policy,
+which makes it a better host for this than most laptops. Nothing to install, no
+Python, no command line. The run takes about an hour and writes its verdict into
+the job summary; `live-proof.json` and the venue table are attached to the run as
+a downloadable artifact, kept for 90 days.
+
+Tick **probe_only** to just ask which exchanges the runner can reach — about a
+minute, and worth doing first if anything is uncertain.
+
+The job **fails unless the verdict is PROVEN**. A run that completes perfectly
+against something that is not an exchange is NOT LIVE and still fails: a green
+tick that did not require real market data would be worse than no check at all.
+
+### On your own machine
+
 **One command**, and it needs nothing installed beyond Python 3.11 or newer — no
 virtual environment, no `make`, no `pip install`, no API key. It works the same
 on Windows, macOS and Linux.

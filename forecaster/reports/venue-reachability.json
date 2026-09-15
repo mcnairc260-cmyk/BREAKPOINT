@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-12T08:56:34.681324Z",
+  "generated": "2026-09-15T06:08:18.710464Z",
   "venues_probed": 8,
   "usable_with_adapter": null,
   "blocked_by_egress_policy": [
@@ -28,31 +28,31 @@
           "ok": true,
           "detail": "104.17.185.205, 104.17.186.205, 104.17.187.205",
           "error_class": null,
-          "elapsed_ms": 17.161328000042886
+          "elapsed_ms": 25.816844000019046
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.kraken.com:443",
           "error_class": null,
-          "elapsed_ms": 14.099010999984785
+          "elapsed_ms": 15.540903999976763
         },
         "tls": {
           "ok": false,
           "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
           "error_class": "InterceptedTLS",
-          "elapsed_ms": 42.84453700006452
+          "elapsed_ms": 65.70192300000599
         },
         "rest": {
           "ok": false,
           "detail": "403 Forbidden",
           "error_class": "ProxyError",
-          "elapsed_ms": 340.45932599997286
+          "elapsed_ms": 395.7283700000289
         },
         "websocket": {
           "ok": false,
           "detail": "proxy rejected connection: HTTP 403",
           "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 278.31389400000717
+          "elapsed_ms": 273.8909859999694
         }
       }
     },
@@ -71,31 +71,31 @@
           "ok": true,
           "detail": "104.18.36.178, 172.64.151.78, 2606:4700:4400::ac40:974e",
           "error_class": null,
-          "elapsed_ms": 23.016968999968412
+          "elapsed_ms": 18.212795000067672
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.exchange.coinbase.com:443",
           "error_class": null,
-          "elapsed_ms": 16.016551000006984
+          "elapsed_ms": 17.361555000093176
         },
         "tls": {
           "ok": false,
           "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
           "error_class": "InterceptedTLS",
-          "elapsed_ms": 40.33116499999778
+          "elapsed_ms": 129.02066999993167
         },
         "rest": {
           "ok": false,
           "detail": "403 Forbidden",
           "error_class": "ProxyError",
-          "elapsed_ms": 285.6586759999118
+          "elapsed_ms": 301.2380069999381
         },
         "websocket": {
           "ok": false,
           "detail": "proxy rejected connection: HTTP 403",
           "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 258.7659490000078
+          "elapsed_ms": 230.9028900000385
         }
       }
     },
@@ -114,31 +114,31 @@
           "ok": true,
           "detail": "18.160.135.186",
           "error_class": null,
-          "elapsed_ms": 29.974809999998797
+          "elapsed_ms": 35.01211899992995
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.binance.com:443",
           "error_class": null,
-          "elapsed_ms": 52.28621599997041
+          "elapsed_ms": 48.836742999924354
         },
         "tls": {
           "ok": false,
           "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
           "error_class": "InterceptedTLS",
-          "elapsed_ms": 68.12078199993721
+          "elapsed_ms": 82.5737110000091
         },
         "rest": {
           "ok": false,
           "detail": "403 Forbidden",
           "error_class": "ProxyError",
-          "elapsed_ms": 307.8627999999526
+          "elapsed_ms": 291.9294700000137
         },
         "websocket": {
           "ok": false,
           "detail": "[Errno 104] Connection reset by peer",
           "error_class": "ConnectionResetError",
-          "elapsed_ms": 6181.157345999964
+          "elapsed_ms": 6181.472891999988
         }
       }
     },
@@ -157,31 +157,31 @@
           "ok": true,
           "detail": "99.84.101.51",
           "error_class": null,
-          "elapsed_ms": 36.83134499999596
+          "elapsed_ms": 36.33829800003241
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.binance.us:443",
           "error_class": null,
-          "elapsed_ms": 44.64705100008359
+          "elapsed_ms": 2.6445459999422383
         },
         "tls": {
           "ok": false,
           "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
           "error_class": "InterceptedTLS",
-          "elapsed_ms": 206.7389369999546
+          "elapsed_ms": 111.4448349999293
         },
         "rest": {
           "ok": false,
           "detail": "403 Forbidden",
           "error_class": "ProxyError",
-          "elapsed_ms": 292.5860110000258
+          "elapsed_ms": 356.4276009999503
         },
         "websocket": {
           "ok": false,
           "detail": "[Errno 104] Connection reset by peer",
           "error_class": "ConnectionResetError",
-          "elapsed_ms": 6200.375574999953
+          "elapsed_ms": 6209.446378000052
         }
       }
     },
@@ -200,31 +200,31 @@
           "ok": true,
           "detail": "107.154.133.13",
           "error_class": null,
-          "elapsed_ms": 15.500680999934957
+          "elapsed_ms": 14.81258199999047
         },
         "tcp": {
           "ok": true,
           "detail": "connected to www.bitstamp.net:443",
           "error_class": null,
-          "elapsed_ms": 15.884153999991213
+          "elapsed_ms": 15.503325000054247
         },
         "tls": {
           "ok": false,
           "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
           "error_class": "InterceptedTLS",
-          "elapsed_ms": 86.51861600003485
+          "elapsed_ms": 83.35727299993323
         },
         "rest": {
           "ok": false,
           "detail": "403 Forbidden",
           "error_class": "ProxyError",
-          "elapsed_ms": 341.66292099996554
+          "elapsed_ms": 306.8820849999838
         },
         "websocket": {
           "ok": false,
           "detail": "proxy rejected connection: HTTP 403",
           "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 242.1206300000449
+          "elapsed_ms": 97.17594700009613
         }
       }
     },
@@ -241,33 +241,33 @@
       "layers": {
         "dns": {
           "ok": true,
-          "detail": "3.209.208.119, 3.226.210.197, 52.4.208.191",
+          "detail": "18.213.158.226, 23.22.11.39, 3.209.208.119",
           "error_class": null,
-          "elapsed_ms": 4.175244000066414
+          "elapsed_ms": 3.053053000030559
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.gemini.com:443",
           "error_class": null,
-          "elapsed_ms": 3.306648000034329
+          "elapsed_ms": 2.4444420000691025
         },
         "tls": {
           "ok": false,
           "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
           "error_class": "InterceptedTLS",
-          "elapsed_ms": 257.49798599997575
+          "elapsed_ms": 77.90955199993732
         },
         "rest": {
           "ok": false,
           "detail": "403 Forbidden",
           "error_class": "ProxyError",
-          "elapsed_ms": 307.20532099996944
+          "elapsed_ms": 323.2648659999313
         },
         "websocket": {
           "ok": false,
           "detail": "proxy rejected connection: HTTP 403",
           "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 254.3756759999951
+          "elapsed_ms": 242.95247899999595
         }
       }
     },
@@ -286,31 +286,31 @@
           "ok": true,
           "detail": "104.18.43.174, 172.64.144.82, 2a06:98c1:3103::ac40:9052",
           "error_class": null,
-          "elapsed_ms": 35.35261199999695
+          "elapsed_ms": 57.21614200001568
         },
         "tcp": {
           "ok": true,
           "detail": "connected to www.okx.com:443",
           "error_class": null,
-          "elapsed_ms": 15.261233000046559
+          "elapsed_ms": 33.78568100004031
         },
         "tls": {
           "ok": false,
           "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
           "error_class": "InterceptedTLS",
-          "elapsed_ms": 51.223905000028935
+          "elapsed_ms": 90.52238800006762
         },
         "rest": {
           "ok": false,
           "detail": "403 Forbidden",
           "error_class": "ProxyError",
-          "elapsed_ms": 292.3559140000407
+          "elapsed_ms": 311.4202770000247
         },
         "websocket": {
           "ok": false,
           "detail": "[Errno 104] Connection reset by peer",
           "error_class": "ConnectionResetError",
-          "elapsed_ms": 6153.122726999982
+          "elapsed_ms": 6216.652218999911
         }
       }
     },
@@ -329,31 +329,31 @@
           "ok": true,
           "detail": "104.16.164.90, 104.16.165.90, 104.16.166.90",
           "error_class": null,
-          "elapsed_ms": 15.75861999992867
+          "elapsed_ms": 20.38455599995359
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api-pub.bitfinex.com:443",
           "error_class": null,
-          "elapsed_ms": 15.016866999985723
+          "elapsed_ms": 14.9740040000097
         },
         "tls": {
           "ok": false,
           "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
           "error_class": "InterceptedTLS",
-          "elapsed_ms": 95.31071599997176
+          "elapsed_ms": 173.70729199990365
         },
         "rest": {
           "ok": false,
           "detail": "403 Forbidden",
           "error_class": "ProxyError",
-          "elapsed_ms": 266.5549619999865
+          "elapsed_ms": 395.8071109999537
         },
         "websocket": {
           "ok": false,
           "detail": "proxy rejected connection: HTTP 403",
           "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 258.49513900004695
+          "elapsed_ms": 220.95483599991894
         }
       }
     }

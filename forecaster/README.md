@@ -69,8 +69,13 @@ To run the whole pipeline end to end — generate a market, train, backtest:
 make demo      # ~45 minutes; writes reports/backtest.json
 ```
 
-To prove it against a real exchange, from a machine with ordinary network access,
-there is one command — and it needs only Python 3.11+, no venv, no `make`, no key:
+To prove it against a real exchange there is a button: **Actions → "Live market
+proof" → Run workflow**. A GitHub runner has ordinary internet and no egress
+policy, so nothing needs installing anywhere; the verdict lands in the job
+summary and `live-proof.json` is attached to the run.
+
+Or, from any machine with ordinary network access, one command — needing only
+Python 3.11+, no venv, no `make`, no key:
 
 ```
 python scripts/live_proof.py     # ~1 hour, unattended, exits 0 only on PROVEN
