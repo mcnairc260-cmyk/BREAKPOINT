@@ -4,20 +4,21 @@ Calibrated probabilities that BTC or ETH finishes above a price you choose, at 5
 and 20 minutes — with every forecast recorded before its outcome is knowable and
 scored automatically afterwards.
 
-> ### NO REAL-MARKET VALIDATION HAS BEEN PERFORMED
+> ### THE APPLICATION WORKS ON A LIVE MARKET. THE FORECASTS ARE UNPROVEN.
 >
-> **No real BTC or ETH data has been ingested. No live forecast has been made or
-> resolved.** Every result here was produced on **simulated, replayed or
-> conformance** data. The environment this was built in cannot reach any exchange:
-> Coinbase, Kraken and Binance are each refused with `HTTP 403` at the egress
-> proxy, on both transports.
+> On **15 September 2026** this ran for 72 minutes against **Coinbase** and
+> returned **PROVEN**, 11 stages of 11: real BTC and ETH data in, **132 live
+> forecasts**, **108 resolved** from the venue's own prints, 0 void, 0
+> monotonicity violations, 0 reconnects, all 132 surviving a restart with no
+> duplicate outcomes. Evidence: [`reports/live-proof.json`](reports/live-proof.json).
 >
-> So: the pipeline is built and tested, the maths is checked, the leakage
-> controls work, the live data path is exercised over a real socket, and the
-> product runs end to end. **Nothing here is evidence about real markets.**
+> That run produced **18 independent observations**. The report labels every cell
+> INSUFFICIENT and refuses to compute a calibration error, which is correct.
+> **Nothing here is evidence that the forecasts are any good** — that needs days
+> of collection, is measured separately, and the learner stays quarantined behind
+> its unchanged 750-observation threshold.
 >
-> The remaining gap is exactly one thing — network access to an exchange — and
-> three commands close it. See [`LIVE_VALIDATION.md`](LIVE_VALIDATION.md) and
+> Two different claims. See [`LIVE_VALIDATION.md`](LIVE_VALIDATION.md) and
 > [`VALIDATION.md`](VALIDATION.md).
 
 ---

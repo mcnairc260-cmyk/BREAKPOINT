@@ -1,48 +1,35 @@
 # VALIDATION.md — how forecast quality is measured, and what has been shown
 
-> ## NO REAL-MARKET VALIDATION HAS BEEN PERFORMED
+> ## THE APPLICATION HAS BEEN PROVEN ON A LIVE MARKET. ITS FORECASTS HAVE NOT.
 >
-> **No real BTC or ETH market data has been ingested. No live forecast has been
-> made. No live forecast has been resolved.** Every number in this document was
-> produced on **simulated, replayed or conformance** data.
+> Those are two different claims and only the first one is established.
 >
-> The environment this system was built in cannot reach any exchange. Eight venues
-> were probed at five layers each — Kraken, Coinbase, Binance, Binance.US,
-> Bitstamp, Gemini, OKX and Bitfinex. Every hostname resolves, every TCP
-> connection succeeds, every REST request returns `HTTP 403` and every WebSocket
-> upgrade is refused.
+> **What is now true.** On **15 September 2026**, `forecaster live-proof` ran for
+> 72 minutes against **Coinbase** over a real WebSocket connection and returned
+> **PROVEN** — 11 stages out of 11. Real BTC-USD and ETH-USD data went in, 132
+> forecasts came out, 108 of them reached expiry and were scored from the venue's
+> own prints with **zero voids**, **zero monotonicity violations**, **zero
+> reconnects**, and all 132 surviving a restart with the hash chain intact and no
+> duplicate outcomes. Both horizons resolved. The record is
+> `reports/live-proof.json`, committed by the run itself.
 >
-> The TLS handshakes also succeed, which reads as "the venues are reachable" and
-> is the opposite of the truth: the certificates are issued by the environment's
-> own egress gateway, not by any public CA. Every route out of this machine,
-> proxied or not, terminates there. No choice of venue, transport or port changes
-> it. `forecaster probe-venues` reports this, and `reports/venue-reachability.json`
-> is the record.
+> **What is still not true.** That run produced **18 independent observations**.
+> Eighteen. The report labels every cell `INSUFFICIENT — SMOKE TEST ONLY` and
+> refuses to compute a calibration error at all, which is correct: an expected
+> calibration error from eighteen observations has a confidence interval wider
+> than the quantity it estimates. The Brier scores below are printed because the
+> code prints them, not because they mean anything yet.
 >
-> That means the results here show the **pipeline is correct**. They are not
-> evidence about real markets, and none of them should be quoted as if they were.
-> This banner stays until real outcomes exist.
+> So: **the machinery works on a real market.** Whether the probabilities are any
+> good is untouched by this, needs days of collection, and is measured separately
+> by `forecaster live-report`. Nothing here is evidence of an edge, and the
+> learner remains quarantined behind its unchanged 750-observation threshold.
 >
-> **What did change:** the live data path is no longer only fixture-tested. The
-> production adapter is now exercised over a real socket against a server
-> speaking Coinbase's wire protocol, including reconnects, stale feeds, malformed
-> frames and restarts — `make conformance`, 11/11. That proves the **client**. It
-> proves nothing about the venue and nothing whatever about forecast accuracy.
+> Every other number in this document still comes from **simulated, replayed or
+> conformance** data and should be read that way.
 >
-> The gap is exactly one thing: network egress to an exchange, and **one command**
-> closes it — `make live-proof`, about an hour, unattended. It ends in PROVEN,
-> NOT LIVE or BLOCKED and exits zero only for PROVEN, so a run against anything
-> that is not a venue can never be mistaken for a real-market result.
->
-> That procedure has been run end to end at the **actual 300-second and
-> 1200-second horizons** against a wire-protocol server: 504 forecasts, 204
-> resolved with 0 void, both horizons scored, 0 monotonicity violations in 420
-> adjacent target pairs, all 504 surviving a restart with 0 duplicate outcomes —
-> and a verdict of NOT LIVE, because the endpoint was not an exchange. Against
-> Coinbase itself the same command reports BLOCKED with the 403.
->
-> See **[LIVE_VALIDATION.md](LIVE_VALIDATION.md)** for the full output, for the
-> three defects found in code that was already shipping, and for what remains.
+> See **[LIVE_VALIDATION.md](LIVE_VALIDATION.md)** for the full output, the three
+> defects that only live data could expose, and what remains.
 
 ---
 

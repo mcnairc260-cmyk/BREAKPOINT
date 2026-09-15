@@ -1,19 +1,24 @@
 # LIVE_VALIDATION.md — the real-market validation phase
 
-> ## STATUS: BLOCKED ON NETWORK ACCESS, NOT ON CODE
+> ## STATUS: LIVE-MARKET OPERATIONAL CORRECTNESS — PROVEN
 >
-> **No real BTC or ETH market data has been ingested. No live forecast has been
-> made. No live forecast has been resolved. This system still has no real-market
-> track record.**
+> **15 September 2026, 09:04–10:16 UTC. Coinbase. WebSocket. 11 stages of 11.**
 >
-> The reason is external and was verified again at the start of this phase:
-> every exchange host is refused by this environment's egress proxy. The work
-> that could be done without a venue was done, and the one thing that needs a
-> venue is one command away.
+> Real BTC-USD and ETH-USD data, 132 live forecasts, 108 resolved from the
+> venue's own prints, 0 void, 0 monotonicity violations, 0 reconnects, restart
+> survived with 0 duplicate outcomes. Verdict **PROVEN**, exit 0.
+>
+> This proves the application. It says nothing about forecast skill: 18
+> independent observations is a smoke test, the report labels it as one, and
+> that stays true until days of collection say otherwise.
 
 ---
 
-## 1. Every reputable venue was tried, and the blockage is environmental
+## 1. The development environment cannot reach a venue. A GitHub runner can.
+
+The proof in section 10 ran on a GitHub Actions runner, not here. This section
+records why that was necessary, because the diagnosis took interpreting and the
+same trap catches anyone behind a corporate proxy.
 
 Eight exchanges, five layers each, probed programmatically:
 
@@ -348,11 +353,11 @@ the behaviour changes.
 
 ---
 
-## 5. Three defects found and fixed, none of which announced itself
+## 5. Five defects found and fixed, none of which announced itself
 
-The first two were pre-existing and reachable in production. The third was in the
-proof procedure itself and was found only by running it for twenty-two minutes
-rather than reasoning about it.
+The first three were found offline. The last two took real market data and could
+not have been found any other way — which is the strongest argument in this
+document for why the live proof had to happen at all.
 
 ### The append-only log forked under concurrency
 
@@ -395,6 +400,50 @@ Against Coinbase that would have burned an hour before anyone could tell whether
 the venue or the code was at fault. Each stage now opens its own connection, and
 a test asserts that a closed provider yields nothing and that a fresh one against
 the same venue works, so the assumption cannot come back quietly.
+
+### The live proof budgeted one horizon where it needed two
+
+*Found by the first live run.* It reached Coinbase, verified real prices, made 72
+forecasts and resolved 48 — and returned FAILED on the one stage the procedure
+exists to demonstrate: no 20-minute forecast resolved.
+
+The budget assumed a forecast is made the instant the warm-up ends. It is not. A
+horizon-H forecast is sampled once every H seconds — deliberately, so that no two
+overlap — so the first tick after a thirty-minute warm-up can be almost a full H
+away, and only then does the horizon begin. Worst case is warm-up + 2H. Budgeting
+warm-up + H gave 52 minutes; the 20-minute forecasts were made at minute 40 and
+would have expired at minute 60.
+
+The arithmetic was exactly right and the formula was wrong, which is the hardest
+combination to notice.
+
+### The WebSocket frame limit was one megabyte
+
+*Found by the second live run, by a check added after the first.* The run resolved
+both horizons and failed on the reconnect stage, which reported what no previous
+run had:
+
+```
+ConnectionClosedError: sent 1009 (message too big)
+```
+
+Close code 1009 is the client refusing a frame. Coinbase opens the `level2_batch`
+channel by sending the entire order book per product, and the `websockets`
+default caps a frame at 1 MiB. So: connect, subscribe, receive an oversized
+snapshot, close, reconnect, resubscribe, receive it again — **6,177 times in 72
+minutes**, while still passing enough trades and quotes between reconnects that
+every other stage went green.
+
+No fixture could have found this. Fixtures are small because a person typed them;
+only a venue sends a real book. And it needed the reconnect stage to be *visible*
+rather than merely present: the first live run had the identical storm and
+reported nothing, because data was arriving and that is easy to mistake for a
+connection being healthy.
+
+All three adapters now cap at 32 MiB — generous for a book, still a bound.
+Removing the limit would drop the only defence against a feed that misbehaves.
+The test pads a conformance snapshot to 2.39 MiB and was checked against a
+reverted fix to confirm it actually fails there.
 
 ---
 
@@ -467,19 +516,16 @@ different thing. Fix it, and write down what it was.
 
 ---
 
-## 9. What would make this COMPLETE
+## 9. What is done, and what would make the rest COMPLETE
 
-On a network that can reach Coinbase:
+**Done — 15 September 2026.** `live-proof` ended in PROVEN and exited 0. Real BTC
+and ETH data in, real forecasts out, both horizons expired, outcomes recorded
+from the venue's own prints, survived a restart. `reports/live-proof.json` is in
+the repository. `VALIDATION.md`'s banner now says the application has been shown
+to work on live market data — and nothing more than that.
 
-1. `make live-proof` ends in **PROVEN** and exits 0. That is the whole of
-   REAL-MARKET VALIDATION for the application: real BTC and ETH data in, real
-   forecasts out, both horizons expired, outcomes recorded from the venue's own
-   prints, survived a restart. Keep `reports/live-proof.json`.
-2. Paste that verdict block into section 10 below.
-3. Update `VALIDATION.md`'s banner — **only then**, and only to say that the
-   application has been shown to work on live market data.
-
-Then, separately, for a track record rather than a proof:
+**Not done, and a different thing entirely** — a track record rather than a
+proof:
 
 4. `make collect-live` runs for at least a few days.
 5. `make live-report` shows resolved live forecasts in all four cells
@@ -495,4 +541,78 @@ second one is much stronger, and nothing in this repository supports it.
 
 ## 10. Live results
 
-*(empty — no live forecasts have been made)*
+**Run 34950384459 — 15 September 2026, 09:04:07 to 10:16:07 UTC (72 minutes).**
+
+```
+FORECASTER LIVE MARKET PROOF
+verdict          : PROVEN
+scope            : Real venue market data, forecast and resolved end to end.
+venue            : coinbase over websocket
+data source      : LIVE
+real BTC received: True
+real ETH received: True
+forecasts        : 132 generated, 108 resolved, 0 void
+restart recovery : ok  (duplicate outcomes: 0)
+monotonicity     : 0 violations
+reconnects       : 0
+per cell         :
+  BTC-USD 5m : 54 generated, 48 resolved
+  BTC-USD 20m: 12 generated,  6 resolved
+  ETH-USD 5m : 54 generated, 48 resolved
+  ETH-USD 20m: 12 generated,  6 resolved
+stages           :
+  [PASS] endpoint is a real venue — data_source=LIVE
+  [PASS] live prices verified — 32 checks passed, 0 failed, 1,581 events
+  [PASS] real BTC and ETH trades received
+  [PASS] forecasts generated on live data — 132 from 22 sampling instants
+  [PASS] forecasts expired and were scored — 108 resolved, 0 void
+  [PASS] every horizon produced a resolved forecast — resolved at 300s, 1200s
+  [PASS] feed stayed connected — 0 reconnects in 72 min (0.0/min)
+  [PASS] probability never rises with the target — 0 violations in 110 pairs
+  [PASS] predictions survive a restart — 132 of 132, chain intact
+  [PASS] no outcome recorded twice after restart — 0 duplicates
+  [PASS] validation report generated
+```
+
+### The per-cell report, and why none of it is quotable
+
+| cell | forecasts | resolved | void | independent | Brier | ECE | sufficiency |
+|---|---|---|---|---|---|---|---|
+| BTC-USD 5m | 54 | 48 | 0 | **8** | 0.17773 | — | INSUFFICIENT |
+| BTC-USD 20m | 12 | 6 | 0 | **1** | 0.13501 | — | INSUFFICIENT |
+| ETH-USD 5m | 54 | 48 | 0 | **8** | 0.15634 | — | INSUFFICIENT |
+| ETH-USD 20m | 12 | 6 | 0 | **1** | 0.09193 | — | INSUFFICIENT |
+
+Read the **independent** column, not the Brier column. Eighteen independent
+observations in total, one of them per twenty-minute cell. The ECE column is
+empty because the report refuses to compute a calibration error below 100
+independent observations — from eighteen, the confidence interval on that number
+would be wider than the number.
+
+ETH-USD 20m shows 100% accuracy on six forecasts derived from **one** instant.
+That is a coin landing heads once, not a model working. The Brier scores are
+printed because the code prints them; they are not evidence and must not be
+quoted as though they were.
+
+### What this does and does not establish
+
+**A. Live-market operational correctness — ESTABLISHED.** Real exchange data is
+ingested, parsed, quality-checked, stored, forecast against, expired, resolved
+from recorded prints, and survives a restart without loss or duplication. The
+probability curve never contradicts itself on live output. The feed stays up.
+
+**B. Forecast skill — NOT ESTABLISHED, AND NOT ADDRESSED.** Nothing in this run
+bears on whether the probabilities are calibrated or whether they beat the
+baseline. That needs days, is measured by `forecaster live-report`, and the
+learner stays quarantined behind its unchanged 750-observation threshold until
+it is genuinely met.
+
+Confusing A for B is the single most likely way this project could start lying
+about itself, which is why the two are reported separately everywhere.
+
+---
+
+## 11. Reproducing it
+
+Actions → **Live market proof** → Run workflow. About 72 minutes. The run commits
+its own evidence to `reports/live-proof.json` and attaches it to the run.

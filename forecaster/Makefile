@@ -80,9 +80,13 @@ web-verify:
 # mean less than it says.
 verify: lint typecheck test offline-suite conformance web-verify
 	@echo ""
-	@echo "verified. Note: all results are from simulated, replayed or conformance data."
-	@echo "The conformance run proves the live path works; it is not market data."
-	@echo "See VALIDATION.md and LIVE_VALIDATION.md for what has and has not been shown."
+	@echo "verified. Everything this target runs is simulated, replayed or conformance"
+	@echo "data — it proves the code, not the market."
+	@echo ""
+	@echo "Live-market operational correctness IS proven separately: Coinbase,"
+	@echo "15 Sep 2026, 132 forecasts, 108 resolved. See reports/live-proof.json."
+	@echo "Forecast skill is NOT proven and needs days of collection. Two different"
+	@echo "claims — VALIDATION.md keeps them apart."
 
 demo:
 	cd $(ENGINE) && .venv/bin/forecaster simulate --duration 288000 --regime realistic --anchor-now --reset
