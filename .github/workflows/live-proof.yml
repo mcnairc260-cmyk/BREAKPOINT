@@ -48,6 +48,11 @@ on:
         required: false
         default: false
         type: boolean
+      ref:
+        description: 'Branch holding the forecaster (leave as-is unless it has moved)'
+        required: false
+        default: 'claude/crypto-probability-forecaster-f3qhmn'
+        type: string
 
 concurrency:
   group: live-proof
@@ -69,7 +74,26 @@ jobs:
         working-directory: forecaster/engine
 
     steps:
+      # Explicitly the branch that holds the forecaster, not whichever ref this
+      # was dispatched from. The button lives on the default branch so that
+      # GitHub will show it, and the default branch has no forecaster/ directory
+      # — so a run left on its default selection would fail on the first step
+      # with a confusing "no such file" rather than doing the thing it exists to
+      # do. Naming the ref makes every dispatch work the same way.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Confirm the forecaster is present on this ref
+        working-directory: .
+        run: |
+          set -euo pipefail
+          if [ ! -f forecaster/engine/pyproject.toml ]; then
+            echo "No forecaster/engine on ref '${{ inputs.ref }}'."
+            echo "Re-run and set 'ref' to the branch that holds it."
+            exit 1
+          fi
+          echo "ok: forecaster present on ${{ inputs.ref }}"
 
       - uses: actions/setup-python@v5
         with:
