@@ -1,58 +1,49 @@
 {
-  "generated": "2026-09-15T06:08:18.710464Z",
+  "generated": "2026-09-15T07:47:43.457049Z",
   "venues_probed": 8,
-  "usable_with_adapter": null,
-  "blocked_by_egress_policy": [
-    "kraken",
-    "coinbase",
-    "binance",
-    "binance.us",
-    "bitstamp",
-    "gemini",
-    "okx",
-    "bitfinex"
-  ],
+  "usable_with_adapter": "kraken",
+  "blocked_by_egress_policy": [],
   "probes": [
     {
       "venue": "kraken",
       "rest_host": "api.kraken.com",
       "ws_host": "ws.kraken.com",
       "adapter_exists": true,
-      "usable_public_market_data": false,
-      "blocked_by_egress_policy": true,
-      "tls_intercepted_before_venue": true,
-      "http_status": null,
-      "sample": null,
+      "usable_public_market_data": true,
+      "blocked_by_egress_policy": false,
+      "tls_intercepted_before_venue": false,
+      "http_status": 200,
+      "sample": "{\"error\":[],\"result\":{\"XXBTZUSD\":{\"a\":[\"77020.90000\",\"3\",\"3.000\"],\"b\":[\"77020.80000\",\"1\",\"1.000\"],\"c\":[\"77020.90000\",\"0.00210900\"],\"v\":[\"451.80037575\",\"3243.865",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "104.17.185.205, 104.17.186.205, 104.17.187.205",
           "error_class": null,
-          "elapsed_ms": 25.816844000019046
+          "elapsed_ms": 121.16032899999851
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.kraken.com:443",
           "error_class": null,
-          "elapsed_ms": 15.540903999976763
+          "elapsed_ms": 74.17743900000318
         },
         "tls": {
-          "ok": false,
-          "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
-          "error_class": "InterceptedTLS",
-          "elapsed_ms": 65.70192300000599
+          "ok": true,
+          "detail": "TLSv1.3, issued by Google Trust Services",
+          "error_class": null,
+          "elapsed_ms": 106.77414599999935
         },
         "rest": {
-          "ok": false,
-          "detail": "403 Forbidden",
-          "error_class": "ProxyError",
-          "elapsed_ms": 395.7283700000289
+          "ok": true,
+          "detail": "HTTP 200, 309 bytes",
+          "error_class": null,
+          "elapsed_ms": 106.41999700000326
         },
         "websocket": {
-          "ok": false,
-          "detail": "proxy rejected connection: HTTP 403",
-          "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 273.8909859999694
+          "ok": true,
+          "detail": "upgrade accepted",
+          "error_class": null,
+          "elapsed_ms": 1403.4853250000056
         }
       }
     },
@@ -61,41 +52,41 @@
       "rest_host": "api.exchange.coinbase.com",
       "ws_host": "ws-feed.exchange.coinbase.com",
       "adapter_exists": true,
-      "usable_public_market_data": false,
-      "blocked_by_egress_policy": true,
-      "tls_intercepted_before_venue": true,
-      "http_status": null,
-      "sample": null,
+      "usable_public_market_data": true,
+      "blocked_by_egress_policy": false,
+      "tls_intercepted_before_venue": false,
+      "http_status": 200,
+      "sample": "{\"ask\":\"77001.8\",\"bid\":\"77000.27\",\"volume\":\"6457.75722955\",\"trade_id\":1092910736,\"price\":\"77000.27\",\"size\":\"0.00001621\",\"time\":\"2026-09-15T07:47:31.646333249Z\",",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "104.18.36.178, 172.64.151.78, 2606:4700:4400::ac40:974e",
           "error_class": null,
-          "elapsed_ms": 18.212795000067672
+          "elapsed_ms": 124.89417300000127
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.exchange.coinbase.com:443",
           "error_class": null,
-          "elapsed_ms": 17.361555000093176
+          "elapsed_ms": 7.139993000002676
         },
         "tls": {
-          "ok": false,
-          "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
-          "error_class": "InterceptedTLS",
-          "elapsed_ms": 129.02066999993167
+          "ok": true,
+          "detail": "TLSv1.3, issued by Google Trust Services",
+          "error_class": null,
+          "elapsed_ms": 39.88392000000118
         },
         "rest": {
-          "ok": false,
-          "detail": "403 Forbidden",
-          "error_class": "ProxyError",
-          "elapsed_ms": 301.2380069999381
+          "ok": true,
+          "detail": "HTTP 200, 186 bytes",
+          "error_class": null,
+          "elapsed_ms": 62.9879399999993
         },
         "websocket": {
-          "ok": false,
-          "detail": "proxy rejected connection: HTTP 403",
-          "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 230.9028900000385
+          "ok": true,
+          "detail": "upgrade accepted",
+          "error_class": null,
+          "elapsed_ms": 255.5839840000047
         }
       }
     },
@@ -105,40 +96,40 @@
       "ws_host": "stream.binance.com",
       "adapter_exists": true,
       "usable_public_market_data": false,
-      "blocked_by_egress_policy": true,
-      "tls_intercepted_before_venue": true,
-      "http_status": null,
+      "blocked_by_egress_policy": false,
+      "tls_intercepted_before_venue": false,
+      "http_status": 451,
       "sample": null,
       "layers": {
         "dns": {
           "ok": true,
-          "detail": "18.160.135.186",
+          "detail": "108.156.106.57",
           "error_class": null,
-          "elapsed_ms": 35.01211899992995
+          "elapsed_ms": 195.36321599999695
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.binance.com:443",
           "error_class": null,
-          "elapsed_ms": 48.836742999924354
+          "elapsed_ms": 16.71767500000243
         },
         "tls": {
-          "ok": false,
-          "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
-          "error_class": "InterceptedTLS",
-          "elapsed_ms": 82.5737110000091
+          "ok": true,
+          "detail": "TLSv1.3, issued by DigiCert Inc",
+          "error_class": null,
+          "elapsed_ms": 82.76991000000322
         },
         "rest": {
           "ok": false,
-          "detail": "403 Forbidden",
-          "error_class": "ProxyError",
-          "elapsed_ms": 291.9294700000137
+          "detail": "HTTP 451: {   \"code\": 0,   \"msg\": \"Service unavailable from a restricted location accordin",
+          "error_class": "HTTPStatus",
+          "elapsed_ms": 75.11386899999906
         },
         "websocket": {
           "ok": false,
-          "detail": "[Errno 104] Connection reset by peer",
-          "error_class": "ConnectionResetError",
-          "elapsed_ms": 6181.472891999988
+          "detail": "server rejected WebSocket connection: HTTP 451",
+          "error_class": "InvalidStatus",
+          "elapsed_ms": 458.85459799999495
         }
       }
     },
@@ -147,41 +138,41 @@
       "rest_host": "api.binance.us",
       "ws_host": "stream.binance.us",
       "adapter_exists": true,
-      "usable_public_market_data": false,
-      "blocked_by_egress_policy": true,
-      "tls_intercepted_before_venue": true,
-      "http_status": null,
-      "sample": null,
+      "usable_public_market_data": true,
+      "blocked_by_egress_policy": false,
+      "tls_intercepted_before_venue": false,
+      "http_status": 200,
+      "sample": "{\"symbol\":\"BTCUSD\",\"bidPrice\":\"77015.58000000\",\"bidQty\":\"0.02929000\",\"askPrice\":\"77019.44000000\",\"askQty\":\"0.00493000\"}",
       "layers": {
         "dns": {
           "ok": true,
-          "detail": "99.84.101.51",
+          "detail": "13.224.140.41",
           "error_class": null,
-          "elapsed_ms": 36.33829800003241
+          "elapsed_ms": 150.52647000000263
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.binance.us:443",
           "error_class": null,
-          "elapsed_ms": 2.6445459999422383
+          "elapsed_ms": 70.83146200000101
         },
         "tls": {
-          "ok": false,
-          "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
-          "error_class": "InterceptedTLS",
-          "elapsed_ms": 111.4448349999293
+          "ok": true,
+          "detail": "TLSv1.3, issued by Amazon",
+          "error_class": null,
+          "elapsed_ms": 101.27053699999777
         },
         "rest": {
-          "ok": false,
-          "detail": "403 Forbidden",
-          "error_class": "ProxyError",
-          "elapsed_ms": 356.4276009999503
+          "ok": true,
+          "detail": "HTTP 200, 119 bytes",
+          "error_class": null,
+          "elapsed_ms": 525.995799999997
         },
         "websocket": {
-          "ok": false,
-          "detail": "[Errno 104] Connection reset by peer",
-          "error_class": "ConnectionResetError",
-          "elapsed_ms": 6209.446378000052
+          "ok": true,
+          "detail": "upgrade accepted",
+          "error_class": null,
+          "elapsed_ms": 2477.5499859999995
         }
       }
     },
@@ -190,41 +181,41 @@
       "rest_host": "www.bitstamp.net",
       "ws_host": "ws.bitstamp.net",
       "adapter_exists": false,
-      "usable_public_market_data": false,
-      "blocked_by_egress_policy": true,
-      "tls_intercepted_before_venue": true,
-      "http_status": null,
-      "sample": null,
+      "usable_public_market_data": true,
+      "blocked_by_egress_policy": false,
+      "tls_intercepted_before_venue": false,
+      "http_status": 200,
+      "sample": "{\"timestamp\":\"1789458457\",\"open\":\"78185.01\",\"high\":\"79579.16\",\"low\":\"77000.00\",\"last\":\"77001.52\",\"volume\":\"2364.47623941\",\"vwap\":\"78363.01\",\"bid\":\"77010.86\",\"as",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "107.154.133.13",
           "error_class": null,
-          "elapsed_ms": 14.81258199999047
+          "elapsed_ms": 160.42708699999508
         },
         "tcp": {
           "ok": true,
           "detail": "connected to www.bitstamp.net:443",
           "error_class": null,
-          "elapsed_ms": 15.503325000054247
+          "elapsed_ms": 49.290663999997264
         },
         "tls": {
-          "ok": false,
-          "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
-          "error_class": "InterceptedTLS",
-          "elapsed_ms": 83.35727299993323
+          "ok": true,
+          "detail": "TLSv1.3, issued by DigiCert Inc",
+          "error_class": null,
+          "elapsed_ms": 55.787520999999174
         },
         "rest": {
-          "ok": false,
-          "detail": "403 Forbidden",
-          "error_class": "ProxyError",
-          "elapsed_ms": 306.8820849999838
+          "ok": true,
+          "detail": "HTTP 200, 256 bytes",
+          "error_class": null,
+          "elapsed_ms": 57.979782000003866
         },
         "websocket": {
-          "ok": false,
-          "detail": "proxy rejected connection: HTTP 403",
-          "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 97.17594700009613
+          "ok": true,
+          "detail": "upgrade accepted",
+          "error_class": null,
+          "elapsed_ms": 718.5918939999993
         }
       }
     },
@@ -233,41 +224,41 @@
       "rest_host": "api.gemini.com",
       "ws_host": "api.gemini.com",
       "adapter_exists": false,
-      "usable_public_market_data": false,
-      "blocked_by_egress_policy": true,
-      "tls_intercepted_before_venue": true,
-      "http_status": null,
-      "sample": null,
+      "usable_public_market_data": true,
+      "blocked_by_egress_policy": false,
+      "tls_intercepted_before_venue": false,
+      "http_status": 200,
+      "sample": "{\"bid\":\"77013.36000\",\"ask\":\"77013.95000\",\"last\":\"77018.47000\",\"volume\":{\"BTC\":\"149.14397171\",\"USD\":\"11486840.5108274837\",\"timestamp\":1789458420000}}",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "18.213.158.226, 23.22.11.39, 3.209.208.119",
           "error_class": null,
-          "elapsed_ms": 3.053053000030559
+          "elapsed_ms": 91.40507699999745
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.gemini.com:443",
           "error_class": null,
-          "elapsed_ms": 2.4444420000691025
+          "elapsed_ms": 63.796635000002766
         },
         "tls": {
-          "ok": false,
-          "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
-          "error_class": "InterceptedTLS",
-          "elapsed_ms": 77.90955199993732
+          "ok": true,
+          "detail": "TLSv1.2, issued by Amazon",
+          "error_class": null,
+          "elapsed_ms": 125.68729299999859
         },
         "rest": {
-          "ok": false,
-          "detail": "403 Forbidden",
-          "error_class": "ProxyError",
-          "elapsed_ms": 323.2648659999313
+          "ok": true,
+          "detail": "HTTP 200, 148 bytes",
+          "error_class": null,
+          "elapsed_ms": 295.8883410000013
         },
         "websocket": {
-          "ok": false,
-          "detail": "proxy rejected connection: HTTP 403",
-          "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 242.95247899999595
+          "ok": true,
+          "detail": "upgrade accepted",
+          "error_class": null,
+          "elapsed_ms": 2285.5076379999987
         }
       }
     },
@@ -276,41 +267,41 @@
       "rest_host": "www.okx.com",
       "ws_host": "ws.okx.com",
       "adapter_exists": false,
-      "usable_public_market_data": false,
-      "blocked_by_egress_policy": true,
-      "tls_intercepted_before_venue": true,
-      "http_status": null,
-      "sample": null,
+      "usable_public_market_data": true,
+      "blocked_by_egress_policy": false,
+      "tls_intercepted_before_venue": false,
+      "http_status": 200,
+      "sample": "{\"code\":\"0\",\"data\":[{\"instType\":\"SPOT\",\"instId\":\"BTC-USDT\",\"last\":\"77039.6\",\"lastSz\":\"0.000011\",\"askPx\":\"77039.7\",\"askSz\":\"1.00455835\",\"bidPx\":\"77039.6\",\"bidSz\"",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "104.18.43.174, 172.64.144.82, 2a06:98c1:3103::ac40:9052",
           "error_class": null,
-          "elapsed_ms": 57.21614200001568
+          "elapsed_ms": 142.91510199999635
         },
         "tcp": {
           "ok": true,
           "detail": "connected to www.okx.com:443",
           "error_class": null,
-          "elapsed_ms": 33.78568100004031
+          "elapsed_ms": 16.39213400000017
         },
         "tls": {
-          "ok": false,
-          "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
-          "error_class": "InterceptedTLS",
-          "elapsed_ms": 90.52238800006762
+          "ok": true,
+          "detail": "TLSv1.3, issued by Google Trust Services",
+          "error_class": null,
+          "elapsed_ms": 30.975403999995876
         },
         "rest": {
-          "ok": false,
-          "detail": "403 Forbidden",
-          "error_class": "ProxyError",
-          "elapsed_ms": 311.4202770000247
+          "ok": true,
+          "detail": "HTTP 200, 362 bytes",
+          "error_class": null,
+          "elapsed_ms": 226.19331100000295
         },
         "websocket": {
-          "ok": false,
-          "detail": "[Errno 104] Connection reset by peer",
-          "error_class": "ConnectionResetError",
-          "elapsed_ms": 6216.652218999911
+          "ok": true,
+          "detail": "upgrade accepted",
+          "error_class": null,
+          "elapsed_ms": 846.2934190000055
         }
       }
     },
@@ -319,41 +310,41 @@
       "rest_host": "api-pub.bitfinex.com",
       "ws_host": "api-pub.bitfinex.com",
       "adapter_exists": false,
-      "usable_public_market_data": false,
-      "blocked_by_egress_policy": true,
-      "tls_intercepted_before_venue": true,
-      "http_status": null,
-      "sample": null,
+      "usable_public_market_data": true,
+      "blocked_by_egress_policy": false,
+      "tls_intercepted_before_venue": false,
+      "http_status": 200,
+      "sample": "[77035,2.39782615,77044,3.47387624,-828,-0.01063283,77044,1811.13706144,79582,77001,1358182043000]",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "104.16.164.90, 104.16.165.90, 104.16.166.90",
           "error_class": null,
-          "elapsed_ms": 20.38455599995359
+          "elapsed_ms": 41.14857800000493
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api-pub.bitfinex.com:443",
           "error_class": null,
-          "elapsed_ms": 14.9740040000097
+          "elapsed_ms": 45.09398999999803
         },
         "tls": {
-          "ok": false,
-          "detail": "TLSv1.3, but issued by Anthropic \u2014 this connection is terminated before it reaches the venue",
-          "error_class": "InterceptedTLS",
-          "elapsed_ms": 173.70729199990365
+          "ok": true,
+          "detail": "TLSv1.3, issued by Google Trust Services",
+          "error_class": null,
+          "elapsed_ms": 92.62366299999769
         },
         "rest": {
-          "ok": false,
-          "detail": "403 Forbidden",
-          "error_class": "ProxyError",
-          "elapsed_ms": 395.8071109999537
+          "ok": true,
+          "detail": "HTTP 200, 98 bytes",
+          "error_class": null,
+          "elapsed_ms": 190.56535499998972
         },
         "websocket": {
-          "ok": false,
-          "detail": "proxy rejected connection: HTTP 403",
-          "error_class": "InvalidProxyStatus",
-          "elapsed_ms": 220.95483599991894
+          "ok": true,
+          "detail": "upgrade accepted",
+          "error_class": null,
+          "elapsed_ms": 529.8843629999936
         }
       }
     }
