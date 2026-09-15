@@ -1,0 +1,171 @@
+# The live market proof, run on a machine that can actually reach an exchange.
+#
+# This exists because the one thing the forecaster still lacks — real BTC and ETH
+# market data — cannot be obtained from the environment it was built in, where
+# every exchange is refused at the egress gateway. It does not need a laptop, a
+# Python install, or a command line: a GitHub runner has ordinary internet, six
+# hours of budget, and a button.
+#
+#   Actions -> Live market proof -> Run workflow
+#
+# It probes every venue, picks one that answers, and runs the full proof: verify
+# prices, collect until the volatility model has enough history, forecast BTC and
+# ETH at 5 and 20 minutes across six target distances, wait for those forecasts to
+# expire, resolve them from the venue's own prints, restart against the same
+# database, and report.
+#
+# About an hour, nearly all of it waiting. Thirty minutes before the volatility
+# model will speak at all and twenty for the longer horizon to expire; neither can
+# be shortened without weakening a safeguard.
+#
+# The job fails unless the verdict is PROVEN. A run that completes perfectly
+# against something that is not an exchange is NOT LIVE and still fails, because a
+# green tick that did not require real market data would be worse than no check.
+name: Live market proof
+
+on:
+  workflow_dispatch:
+    inputs:
+      venue:
+        description: 'Exchange to use (blank = probe and pick the first that answers)'
+        required: false
+        default: ''
+        type: choice
+        options: ['', 'kraken', 'coinbase', 'binance', 'binance.us']
+      transport:
+        description: 'websocket, or poll where WebSocket upgrades are blocked'
+        required: false
+        default: 'websocket'
+        type: choice
+        options: ['websocket', 'poll']
+      minutes:
+        description: 'Wall-clock budget in minutes (75 is the sensible default)'
+        required: false
+        default: '75'
+        type: string
+      probe_only:
+        description: 'Only check which exchanges are reachable (~1 minute)'
+        required: false
+        default: false
+        type: boolean
+      ref:
+        description: 'Branch holding the forecaster (leave as-is unless it has moved)'
+        required: false
+        default: 'claude/crypto-probability-forecaster-f3qhmn'
+        type: string
+
+concurrency:
+  group: live-proof
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  proof:
+    name: Prove the forecaster on a live market
+    runs-on: ubuntu-latest
+    # Generous: the proof itself is about an hour, and a venue that stalls should
+    # fail on its own terms rather than be killed mid-collection.
+    timeout-minutes: 110
+    defaults:
+      run:
+        shell: bash
+        working-directory: forecaster/engine
+
+    steps:
+      # Explicitly the branch that holds the forecaster, not whichever ref this
+      # was dispatched from. The button lives on the default branch so that
+      # GitHub will show it, and the default branch has no forecaster/ directory
+      # — so a run left on its default selection would fail on the first step
+      # with a confusing "no such file" rather than doing the thing it exists to
+      # do. Naming the ref makes every dispatch work the same way.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Confirm the forecaster is present on this ref
+        working-directory: .
+        run: |
+          set -euo pipefail
+          if [ ! -f forecaster/engine/pyproject.toml ]; then
+            echo "No forecaster/engine on ref '${{ inputs.ref }}'."
+            echo "Re-run and set 'ref' to the branch that holds it."
+            exit 1
+          fi
+          echo "ok: forecaster present on ${{ inputs.ref }}"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install the engine
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # Always first, and always recorded. When no venue answers this is the
+      # whole diagnosis, and when one does it says which and why.
+      - name: Which exchanges can this runner reach?
+        id: probe
+        run: |
+          set -euo pipefail
+          mkdir -p ../reports
+          set +e
+          forecaster probe-venues --json ../reports/venue-reachability.json | tee probe.txt
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          {
+            echo '## Venue reachability'
+            echo '```'
+            cat probe.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop here if no exchange is reachable
+        if: steps.probe.outputs.status != '0'
+        run: |
+          set -euo pipefail
+          echo "No exchange answered from this runner. The table above names the"
+          echo "layer that failed for each venue. Nothing further can run."
+          exit 1
+
+      - name: The live proof
+        if: ${{ inputs.probe_only == false }}
+        id: proof
+        run: |
+          set -euo pipefail
+          VENUE_ARG="--auto"
+          if [ -n "${{ inputs.venue }}" ]; then
+            VENUE_ARG="--venue ${{ inputs.venue }}"
+          fi
+          set +e
+          forecaster live-proof $VENUE_ARG \
+            --transport "${{ inputs.transport }}" \
+            --minutes "${{ inputs.minutes }}" \
+            --json ../reports/live-proof.json | tee proof.txt
+          PROOF_STATUS=${PIPESTATUS[0]}
+          set -e
+          echo "status=$PROOF_STATUS" >> "$GITHUB_OUTPUT"
+          {
+            echo '## Live market proof'
+            echo '```'
+            cat proof.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$PROOF_STATUS"
+
+      # Uploaded even on failure: a BLOCKED or FAILED run is exactly the record
+      # worth keeping, and losing it would mean running the hour again.
+      - name: Keep the evidence
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-proof-evidence
+          path: |
+            forecaster/reports/venue-reachability.json
+            forecaster/reports/live-proof.json
+          retention-days: 90
+          if-no-files-found: warn
