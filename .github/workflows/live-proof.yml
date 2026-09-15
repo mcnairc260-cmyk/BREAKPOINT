@@ -39,9 +39,9 @@ on:
         type: choice
         options: ['websocket', 'poll']
       minutes:
-        description: 'Wall-clock budget in minutes (75 is the sensible default)'
+        description: 'Wall-clock budget in minutes (85 covers a 20-minute horizon)'
         required: false
-        default: '75'
+        default: '85'
         type: string
       probe_only:
         description: 'Only check which exchanges are reachable (~1 minute)'
@@ -71,7 +71,7 @@ jobs:
     runs-on: ubuntu-latest
     # Generous: the proof itself is about an hour, and a venue that stalls should
     # fail on its own terms rather than be killed mid-collection.
-    timeout-minutes: 110
+    timeout-minutes: 120
     defaults:
       run:
         shell: bash
