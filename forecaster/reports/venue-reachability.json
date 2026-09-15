@@ -1,5 +1,5 @@
 {
-  "generated": "2026-09-15T07:47:43.457049Z",
+  "generated": "2026-09-15T09:04:06.144161Z",
   "venues_probed": 8,
   "usable_with_adapter": "kraken",
   "blocked_by_egress_policy": [],
@@ -13,37 +13,37 @@
       "blocked_by_egress_policy": false,
       "tls_intercepted_before_venue": false,
       "http_status": 200,
-      "sample": "{\"error\":[],\"result\":{\"XXBTZUSD\":{\"a\":[\"77020.90000\",\"3\",\"3.000\"],\"b\":[\"77020.80000\",\"1\",\"1.000\"],\"c\":[\"77020.90000\",\"0.00210900\"],\"v\":[\"451.80037575\",\"3243.865",
+      "sample": "{\"error\":[],\"result\":{\"XXBTZUSD\":{\"a\":[\"76887.40000\",\"1\",\"1.000\"],\"b\":[\"76887.30000\",\"5\",\"5.000\"],\"c\":[\"76887.40000\",\"0.00048746\"],\"v\":[\"857.28805449\",\"3573.586",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "104.17.185.205, 104.17.186.205, 104.17.187.205",
           "error_class": null,
-          "elapsed_ms": 121.16032899999851
+          "elapsed_ms": 8.29532500000596
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.kraken.com:443",
           "error_class": null,
-          "elapsed_ms": 74.17743900000318
+          "elapsed_ms": 8.48628299999632
         },
         "tls": {
           "ok": true,
           "detail": "TLSv1.3, issued by Google Trust Services",
           "error_class": null,
-          "elapsed_ms": 106.77414599999935
+          "elapsed_ms": 32.95516899999029
         },
         "rest": {
           "ok": true,
           "detail": "HTTP 200, 309 bytes",
           "error_class": null,
-          "elapsed_ms": 106.41999700000326
+          "elapsed_ms": 95.02637000001357
         },
         "websocket": {
           "ok": true,
           "detail": "upgrade accepted",
           "error_class": null,
-          "elapsed_ms": 1403.4853250000056
+          "elapsed_ms": 2308.903942000001
         }
       }
     },
@@ -56,37 +56,37 @@
       "blocked_by_egress_policy": false,
       "tls_intercepted_before_venue": false,
       "http_status": 200,
-      "sample": "{\"ask\":\"77001.8\",\"bid\":\"77000.27\",\"volume\":\"6457.75722955\",\"trade_id\":1092910736,\"price\":\"77000.27\",\"size\":\"0.00001621\",\"time\":\"2026-09-15T07:47:31.646333249Z\",",
+      "sample": "{\"ask\":\"76894.96\",\"bid\":\"76894.95\",\"volume\":\"6894.9423475\",\"trade_id\":1092938079,\"price\":\"76894.95\",\"size\":\"0.00000006\",\"time\":\"2026-09-15T09:03:56.708165575Z\",",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "104.18.36.178, 172.64.151.78, 2606:4700:4400::ac40:974e",
           "error_class": null,
-          "elapsed_ms": 124.89417300000127
+          "elapsed_ms": 11.68306200000302
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.exchange.coinbase.com:443",
           "error_class": null,
-          "elapsed_ms": 7.139993000002676
+          "elapsed_ms": 3.005131000008987
         },
         "tls": {
           "ok": true,
           "detail": "TLSv1.3, issued by Google Trust Services",
           "error_class": null,
-          "elapsed_ms": 39.88392000000118
+          "elapsed_ms": 25.863729000008107
         },
         "rest": {
           "ok": true,
           "detail": "HTTP 200, 186 bytes",
           "error_class": null,
-          "elapsed_ms": 62.9879399999993
+          "elapsed_ms": 44.65049000000931
         },
         "websocket": {
           "ok": true,
           "detail": "upgrade accepted",
           "error_class": null,
-          "elapsed_ms": 255.5839840000047
+          "elapsed_ms": 164.6574969999932
         }
       }
     },
@@ -105,31 +105,31 @@
           "ok": true,
           "detail": "108.156.106.57",
           "error_class": null,
-          "elapsed_ms": 195.36321599999695
+          "elapsed_ms": 75.85450700000251
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.binance.com:443",
           "error_class": null,
-          "elapsed_ms": 16.71767500000243
+          "elapsed_ms": 8.146271000001093
         },
         "tls": {
           "ok": true,
           "detail": "TLSv1.3, issued by DigiCert Inc",
           "error_class": null,
-          "elapsed_ms": 82.76991000000322
+          "elapsed_ms": 28.67095099999517
         },
         "rest": {
           "ok": false,
           "detail": "HTTP 451: {   \"code\": 0,   \"msg\": \"Service unavailable from a restricted location accordin",
           "error_class": "HTTPStatus",
-          "elapsed_ms": 75.11386899999906
+          "elapsed_ms": 42.70420499999261
         },
         "websocket": {
           "ok": false,
           "detail": "server rejected WebSocket connection: HTTP 451",
           "error_class": "InvalidStatus",
-          "elapsed_ms": 458.85459799999495
+          "elapsed_ms": 515.6096380000008
         }
       }
     },
@@ -142,37 +142,37 @@
       "blocked_by_egress_policy": false,
       "tls_intercepted_before_venue": false,
       "http_status": 200,
-      "sample": "{\"symbol\":\"BTCUSD\",\"bidPrice\":\"77015.58000000\",\"bidQty\":\"0.02929000\",\"askPrice\":\"77019.44000000\",\"askQty\":\"0.00493000\"}",
+      "sample": "{\"symbol\":\"BTCUSD\",\"bidPrice\":\"76893.10000000\",\"bidQty\":\"0.01300000\",\"askPrice\":\"76895.78000000\",\"askQty\":\"0.00492000\"}",
       "layers": {
         "dns": {
           "ok": true,
-          "detail": "13.224.140.41",
+          "detail": "13.32.199.41",
           "error_class": null,
-          "elapsed_ms": 150.52647000000263
+          "elapsed_ms": 141.22680600000592
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.binance.us:443",
           "error_class": null,
-          "elapsed_ms": 70.83146200000101
+          "elapsed_ms": 58.45227599999703
         },
         "tls": {
           "ok": true,
           "detail": "TLSv1.3, issued by Amazon",
           "error_class": null,
-          "elapsed_ms": 101.27053699999777
+          "elapsed_ms": 77.47118499999317
         },
         "rest": {
           "ok": true,
           "detail": "HTTP 200, 119 bytes",
           "error_class": null,
-          "elapsed_ms": 525.995799999997
+          "elapsed_ms": 482.05761900000255
         },
         "websocket": {
           "ok": true,
           "detail": "upgrade accepted",
           "error_class": null,
-          "elapsed_ms": 2477.5499859999995
+          "elapsed_ms": 2467.756694000002
         }
       }
     },
@@ -185,37 +185,37 @@
       "blocked_by_egress_policy": false,
       "tls_intercepted_before_venue": false,
       "http_status": 200,
-      "sample": "{\"timestamp\":\"1789458457\",\"open\":\"78185.01\",\"high\":\"79579.16\",\"low\":\"77000.00\",\"last\":\"77001.52\",\"volume\":\"2364.47623941\",\"vwap\":\"78363.01\",\"bid\":\"77010.86\",\"as",
+      "sample": "{\"timestamp\":\"1789463041\",\"open\":\"78185.01\",\"high\":\"79579.16\",\"low\":\"76657.59\",\"last\":\"76892.52\",\"volume\":\"2511.50196611\",\"vwap\":\"78249.42\",\"bid\":\"76892.51\",\"as",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "107.154.133.13",
           "error_class": null,
-          "elapsed_ms": 160.42708699999508
+          "elapsed_ms": 45.65105199999664
         },
         "tcp": {
           "ok": true,
           "detail": "connected to www.bitstamp.net:443",
           "error_class": null,
-          "elapsed_ms": 49.290663999997264
+          "elapsed_ms": 8.487865999995847
         },
         "tls": {
           "ok": true,
           "detail": "TLSv1.3, issued by DigiCert Inc",
           "error_class": null,
-          "elapsed_ms": 55.787520999999174
+          "elapsed_ms": 31.191362000001277
         },
         "rest": {
           "ok": true,
           "detail": "HTTP 200, 256 bytes",
           "error_class": null,
-          "elapsed_ms": 57.979782000003866
+          "elapsed_ms": 35.17431699999918
         },
         "websocket": {
           "ok": true,
           "detail": "upgrade accepted",
           "error_class": null,
-          "elapsed_ms": 718.5918939999993
+          "elapsed_ms": 690.0251870000034
         }
       }
     },
@@ -228,37 +228,37 @@
       "blocked_by_egress_policy": false,
       "tls_intercepted_before_venue": false,
       "http_status": 200,
-      "sample": "{\"bid\":\"77013.36000\",\"ask\":\"77013.95000\",\"last\":\"77018.47000\",\"volume\":{\"BTC\":\"149.14397171\",\"USD\":\"11486840.5108274837\",\"timestamp\":1789458420000}}",
+      "sample": "{\"bid\":\"76897.99000\",\"ask\":\"76898.00000\",\"last\":\"76898.00000\",\"volume\":{\"BTC\":\"156.80663623\",\"USD\":\"12058116.71281454\",\"timestamp\":1789463040000}}",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "18.213.158.226, 23.22.11.39, 3.209.208.119",
           "error_class": null,
-          "elapsed_ms": 91.40507699999745
+          "elapsed_ms": 110.2392029999919
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api.gemini.com:443",
           "error_class": null,
-          "elapsed_ms": 63.796635000002766
+          "elapsed_ms": 20.739125000005743
         },
         "tls": {
           "ok": true,
           "detail": "TLSv1.2, issued by Amazon",
           "error_class": null,
-          "elapsed_ms": 125.68729299999859
+          "elapsed_ms": 101.41306599999211
         },
         "rest": {
           "ok": true,
-          "detail": "HTTP 200, 148 bytes",
+          "detail": "HTTP 200, 146 bytes",
           "error_class": null,
-          "elapsed_ms": 295.8883410000013
+          "elapsed_ms": 161.61136000000909
         },
         "websocket": {
           "ok": true,
           "detail": "upgrade accepted",
           "error_class": null,
-          "elapsed_ms": 2285.5076379999987
+          "elapsed_ms": 1167.0038309999882
         }
       }
     },
@@ -271,37 +271,37 @@
       "blocked_by_egress_policy": false,
       "tls_intercepted_before_venue": false,
       "http_status": 200,
-      "sample": "{\"code\":\"0\",\"data\":[{\"instType\":\"SPOT\",\"instId\":\"BTC-USDT\",\"last\":\"77039.6\",\"lastSz\":\"0.000011\",\"askPx\":\"77039.7\",\"askSz\":\"1.00455835\",\"bidPx\":\"77039.6\",\"bidSz\"",
+      "sample": "{\"code\":\"0\",\"data\":[{\"instType\":\"SPOT\",\"instId\":\"BTC-USDT\",\"last\":\"76930.9\",\"lastSz\":\"0.00091657\",\"askPx\":\"76931\",\"askSz\":\"0.25822618\",\"bidPx\":\"76930.9\",\"bidSz\"",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "104.18.43.174, 172.64.144.82, 2a06:98c1:3103::ac40:9052",
           "error_class": null,
-          "elapsed_ms": 142.91510199999635
+          "elapsed_ms": 6.4982259999908365
         },
         "tcp": {
           "ok": true,
           "detail": "connected to www.okx.com:443",
           "error_class": null,
-          "elapsed_ms": 16.39213400000017
+          "elapsed_ms": 3.0177000000009
         },
         "tls": {
           "ok": true,
           "detail": "TLSv1.3, issued by Google Trust Services",
           "error_class": null,
-          "elapsed_ms": 30.975403999995876
+          "elapsed_ms": 25.366310999999087
         },
         "rest": {
           "ok": true,
-          "detail": "HTTP 200, 362 bytes",
+          "detail": "HTTP 200, 360 bytes",
           "error_class": null,
-          "elapsed_ms": 226.19331100000295
+          "elapsed_ms": 199.71155700000054
         },
         "websocket": {
           "ok": true,
           "detail": "upgrade accepted",
           "error_class": null,
-          "elapsed_ms": 846.2934190000055
+          "elapsed_ms": 735.2932680000066
         }
       }
     },
@@ -314,37 +314,37 @@
       "blocked_by_egress_policy": false,
       "tls_intercepted_before_venue": false,
       "http_status": 200,
-      "sample": "[77035,2.39782615,77044,3.47387624,-828,-0.01063283,77044,1811.13706144,79582,77001,1358182043000]",
+      "sample": "[76934,2.26976316,76945,1.86813648,-797,-0.01025305,76936,1742.09587695,79582,76700,1358182043000]",
       "layers": {
         "dns": {
           "ok": true,
           "detail": "104.16.164.90, 104.16.165.90, 104.16.166.90",
           "error_class": null,
-          "elapsed_ms": 41.14857800000493
+          "elapsed_ms": 112.96180700000491
         },
         "tcp": {
           "ok": true,
           "detail": "connected to api-pub.bitfinex.com:443",
           "error_class": null,
-          "elapsed_ms": 45.09398999999803
+          "elapsed_ms": 43.43071499999951
         },
         "tls": {
           "ok": true,
           "detail": "TLSv1.3, issued by Google Trust Services",
           "error_class": null,
-          "elapsed_ms": 92.62366299999769
+          "elapsed_ms": 68.71619700000053
         },
         "rest": {
           "ok": true,
           "detail": "HTTP 200, 98 bytes",
           "error_class": null,
-          "elapsed_ms": 190.56535499998972
+          "elapsed_ms": 44.25062999999341
         },
         "websocket": {
           "ok": true,
           "detail": "upgrade accepted",
           "error_class": null,
-          "elapsed_ms": 529.8843629999936
+          "elapsed_ms": 522.371347999993
         }
       }
     }
