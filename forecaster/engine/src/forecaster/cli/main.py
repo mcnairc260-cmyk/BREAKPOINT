@@ -981,7 +981,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--symbols", default=None)
     p.add_argument("--transport", default="websocket", choices=("websocket", "poll"))
     p.add_argument("--horizons", default=None, help="comma separated seconds")
-    p.add_argument("--minutes", type=float, default=75.0, help="wall-clock budget")
+    p.add_argument("--minutes", type=float, default=85.0, help="wall-clock budget")
     p.add_argument(
         "--warmup-s",
         type=float,

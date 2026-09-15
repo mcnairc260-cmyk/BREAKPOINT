@@ -70,6 +70,11 @@ CHECK_SECONDS = 30.0
 #: before the deadline still gets a chance to expire and be scored.
 EXPIRY_MARGIN_S = 90.0
 
+#: Above this, the connection is reconnecting more than it is streaming. Set
+#: generously — a healthy venue feed reconnects a handful of times an hour, and
+#: six a minute is already an order of magnitude worse than that.
+MAX_RECONNECTS_PER_MINUTE = 6.0
+
 VERDICT_PROVEN = "PROVEN"
 VERDICT_NOT_LIVE = "NOT LIVE"
 VERDICT_BLOCKED = "BLOCKED"
@@ -214,9 +219,11 @@ def _banner(proof: Proof, warmup_s: float, budget_s: float) -> None:
         print(f"    {warmup_s:.0f}s     warm-up (shortened: history is being supplied another way)")
     if longest >= 60:
         print(
-            f"    ~{longest / 60:.0f} min  a {longest // 60}-minute forecast cannot be "
-            "resolved any sooner."
+            f"    ~{2 * longest / 60:.0f} min  up to {longest // 60} minutes waiting for the "
+            f"first {longest // 60}-minute forecast to be"
         )
+        print(f"            sampled, then {longest // 60} more for it to expire. It is sampled")
+        print("            once per horizon so that no two forecasts overlap.")
     else:
         print(f"    {longest}s      a {longest}-second forecast cannot be resolved any sooner.")
     print("")
@@ -333,13 +340,35 @@ async def _run(
         status_path=workdir / "live_proof_status.json",
     )
 
+    # Twice the longest horizon, not once.
+    #
+    # The first real run of this procedure spent fifty-two minutes on live
+    # Coinbase data, resolved every five-minute forecast, and resolved none of
+    # the twenty-minute ones — because the budget assumed a forecast is made the
+    # instant the warm-up ends. It is not. A horizon-H forecast is sampled once
+    # every H seconds, so the first tick after a thirty-minute warm-up can be
+    # almost a full H away, and only then does the H-second horizon start. Worst
+    # case is warm-up + H (waiting for the tick) + H (the horizon itself).
+    #
+    # Budgeting one H produced a run that failed on the one stage it existed to
+    # demonstrate, and the arithmetic was exactly right: forecasts made at minute
+    # forty expire at minute sixty, and the run stopped at fifty-two.
     remaining = max(deadline - time.monotonic(), 60.0)
-    run_for = min(remaining, warmup_s + max(horizons_s) + EXPIRY_MARGIN_S)
+    longest = max(horizons_s)
+    needed = warmup_s + 2 * longest + EXPIRY_MARGIN_S
+    run_for = min(remaining, needed)
+    if run_for < needed:
+        print(
+            f"  WARNING: {run_for / 60:.0f} minutes left but {needed / 60:.0f} are needed for a "
+            f"{longest // 60}-minute forecast to be made and then expire."
+        )
+        print("           Raise --minutes, or the longest horizon will not resolve.")
     print("")
     print(f"  collecting and forecasting for {run_for / 60:.0f} minutes…", flush=True)
     status = await runner.run(seconds=run_for)
     proof.reconnects = status.reconnects
 
+    provider_error = feed.health.last_error
     rows = predictions.history(limit=1_000_000, prediction_mode="live")
     proof.forecasts = len(rows)
     proof.add(
@@ -388,6 +417,25 @@ async def _run(
         covered == set(horizons_s),
         f"resolved at {', '.join(f'{h}s' for h in sorted(covered)) or 'no horizon'}",
         sorted(covered),
+    )
+
+    # A feed that reconnects more than it streams is not a feed, even when some
+    # data gets through. The first live run logged 7,212 reconnects in 52 minutes
+    # — 139 a minute — and every other stage passed, so nothing said a word about
+    # it. Data arriving is not the same as the connection being healthy, and the
+    # difference matters for anything measured from microstructure.
+    minutes = max(run_for / 60.0, 1.0)
+    rate = proof.reconnects / minutes
+    proof.add(
+        "feed stayed connected",
+        rate <= MAX_RECONNECTS_PER_MINUTE,
+        f"{proof.reconnects:,} reconnects in {minutes:.0f} min ({rate:.1f}/min)"
+        + (
+            ""
+            if rate <= MAX_RECONNECTS_PER_MINUTE
+            else f" — last error: {provider_error or 'none recorded'}"
+        ),
+        {"reconnects": proof.reconnects, "per_minute": round(rate, 2)},
     )
 
     violations, checked = monotonicity_violations(rows)
@@ -486,7 +534,7 @@ def run_live_proof(
     transport: str = "websocket",
     symbols: tuple[str, ...] | None = None,
     horizons_s: tuple[int, ...] = (300, 1200),
-    minutes: float = 75.0,
+    minutes: float = 85.0,
     warmup_s: float = float(MIN_HISTORY_NS) / NS_PER_SECOND,
     sample_every_s: float | None = None,
     output: str | None = None,
