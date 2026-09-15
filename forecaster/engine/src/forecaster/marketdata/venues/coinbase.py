@@ -45,6 +45,24 @@ REST_URL = "https://api.exchange.coinbase.com"
 # resolution is worth.
 POLL_INTERVAL_S = 1.0
 
+#: The largest WebSocket frame to accept, in bytes.
+#:
+#: The library default is 1 MiB, and a full order-book snapshot is bigger than
+#: that. Coinbase's `level2_batch` channel opens by sending the whole book for
+#: each product; the client rejected the frame, closed the connection with code
+#: 1009 "message too big", reconnected, subscribed, and was sent the same
+#: oversized snapshot again.
+#:
+#: The first live run logged 6,177 reconnects in 72 minutes — 86 a minute — while
+#: still delivering enough trades and quotes between reconnects to look like it
+#: was working. Every other stage passed. No fixture could have caught this,
+#: because fixtures are small by construction; only a real venue sends a real
+#: order book.
+#:
+#: 32 MiB is generous for a book snapshot and still a bound. `None` would remove
+#: the limit and with it any defence against a feed that misbehaves.
+MAX_FRAME_BYTES = 32 * 1024 * 1024
+
 
 def parse_iso_ns(value: str | None) -> int:
     """Coinbase timestamps are RFC 3339 with variable fractional digits."""
@@ -193,7 +211,9 @@ class CoinbaseProvider(ProviderBase):
                 "channels": ["matches", "ticker", "level2_batch"],
             }
         )
-        async with websockets.connect(self.ws_url, ping_interval=20, ping_timeout=20) as socket:
+        async with websockets.connect(
+            self.ws_url, ping_interval=20, ping_timeout=20, max_size=MAX_FRAME_BYTES
+        ) as socket:
             await socket.send(subscribe)
             async for raw in socket:
                 received_ns = now_ns()

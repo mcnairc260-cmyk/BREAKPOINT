@@ -20,6 +20,7 @@ not have.
 from __future__ import annotations
 
 import asyncio
+import inspect
 
 import pytest
 
@@ -279,3 +280,54 @@ async def test_a_closed_provider_yields_nothing_and_says_so() -> None:
         replacement = CoinbaseProvider(ws_url=venue.ws_url, rest_url=venue.rest_url)
         third = await asyncio.wait_for(_drain(replacement, ("BTC-USD",), 20), timeout=30)
         assert len(third) == 20, "a new provider on the same venue must work"
+
+
+# ---------------------------------------------------------------------------
+# Frame size. The bug that only a real order book could expose.
+# ---------------------------------------------------------------------------
+
+
+def test_the_frame_limit_is_large_enough_for_a_real_order_book() -> None:
+    """A real level2 snapshot is bigger than the library's 1 MiB default.
+
+    Coinbase opens the `level2_batch` channel by sending the entire book for each
+    product. The websockets default rejected that frame, closed with code 1009
+    "message too big", reconnected, resubscribed, and was sent the same oversized
+    snapshot again — 6,177 times in 72 minutes on the first live run, while still
+    passing enough trades and quotes between reconnects to look healthy.
+
+    No fixture could have caught it. Fixtures are small because someone typed
+    them; only a venue sends a real book. So the constant is pinned here instead,
+    with the default it must exceed.
+    """
+    from websockets.asyncio.client import connect as ws_connect
+
+    from forecaster.marketdata.venues import binance, coinbase, kraken
+
+    library_default = inspect.signature(ws_connect).parameters["max_size"].default
+    assert library_default == 1024 * 1024, "the library default moved; re-check this reasoning"
+
+    for module in (coinbase, kraken, binance):
+        limit = module.MAX_FRAME_BYTES
+        assert limit > library_default, f"{module.__name__} would reject a real book snapshot"
+        assert limit >= 16 * 1024 * 1024, f"{module.__name__}: too tight for a busy book"
+        # Bounded, not None: an unlimited frame size removes the only defence
+        # against a feed that misbehaves.
+        assert limit is not None and limit <= 64 * 1024 * 1024
+
+
+@pytest.mark.enable_socket
+@pytest.mark.allow_hosts(["127.0.0.1", "::1"])
+async def test_a_frame_larger_than_the_default_is_accepted() -> None:
+    """Asserted end to end over a socket, not just as a constant.
+
+    The harness sends a book snapshot padded past 1 MiB. Before the fix this
+    closed the connection; it must now be parsed like any other frame.
+    """
+    venue = CoinbaseConformanceVenue(rate_hz=200.0)
+    venue.book_padding_levels = 40_000  # ~1.5 MiB of price levels
+    async with venue:
+        provider = CoinbaseProvider(ws_url=venue.ws_url, rest_url=venue.rest_url)
+        events = await asyncio.wait_for(_drain(provider, ("BTC-USD",), 40), timeout=40)
+    assert len(events) == 40, "an oversized frame broke the stream"
+    assert provider.health.reconnects == 0, "an oversized frame caused a reconnect"

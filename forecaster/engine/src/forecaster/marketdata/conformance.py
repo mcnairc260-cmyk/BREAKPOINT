@@ -190,6 +190,10 @@ class CoinbaseConformanceVenue:
         self.faults = faults or Faults()
         self.history_s = history_s
         self.history_step_s = history_step_s
+        #: Extra book levels, to produce a frame larger than the WebSocket
+        #: library's 1 MiB default — which is what a real venue's opening
+        #: order-book snapshot does and what no hand-written fixture does.
+        self.book_padding_levels = 0
         self.connections = 0
         self.rest_requests = 0
         self.messages_sent = 0
@@ -441,8 +445,9 @@ class CoinbaseConformanceVenue:
     def _snapshot_message(self, symbol: str) -> dict[str, Any]:
         price = self.state.prices[symbol]
         half = self.state.spread(symbol) / 2.0
-        bids = [[f"{price - half - i * half:.2f}", f"{1.0 + i * 0.1:.8f}"] for i in range(10)]
-        asks = [[f"{price + half + i * half:.2f}", f"{1.0 + i * 0.1:.8f}"] for i in range(10)]
+        levels = 10 + self.book_padding_levels
+        bids = [[f"{price - half - i * half:.2f}", f"{1.0 + i * 0.1:.8f}"] for i in range(levels)]
+        asks = [[f"{price + half + i * half:.2f}", f"{1.0 + i * 0.1:.8f}"] for i in range(levels)]
         return {"type": "snapshot", "product_id": symbol, "bids": bids, "asks": asks}
 
     # -- rest ----------------------------------------------------------------

@@ -23,6 +23,10 @@ from forecaster.types import NS_PER_SECOND, Quote, Side, Trade
 WS_URL = "wss://ws.kraken.com/v2"
 REST_URL = "https://api.kraken.com"
 
+#: See coinbase.py: the library's 1 MiB default rejects a real order-book
+#: snapshot, closes with 1009, and reconnects into the same frame for ever.
+MAX_FRAME_BYTES = 32 * 1024 * 1024
+
 
 def to_venue_symbol(symbol: str) -> str:
     base, _, quote = symbol.partition("-")
@@ -107,7 +111,9 @@ class KrakenProvider(ProviderBase):
         import websockets
 
         venue_symbols = [to_venue_symbol(s) for s in symbols]
-        async with websockets.connect(self.ws_url, ping_interval=20, ping_timeout=20) as socket:
+        async with websockets.connect(
+            self.ws_url, ping_interval=20, ping_timeout=20, max_size=MAX_FRAME_BYTES
+        ) as socket:
             for channel in ("trade", "ticker"):
                 await socket.send(
                     json.dumps(
