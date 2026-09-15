@@ -59,7 +59,11 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  # Write, so the run can commit its own evidence back to the branch. The
+  # artifact and the logs both live on hosts that some networks cannot reach —
+  # including the one this project is developed in — and evidence that cannot be
+  # read is not evidence.
+  contents: write
 
 jobs:
   proof:
@@ -156,6 +160,34 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$PROOF_STATUS"
+
+      # Committed back to the branch, in addition to the artifact below.
+      #
+      # Both the run log and the artifact are served from hosts that are blocked
+      # on some networks, so the only copy guaranteed to be readable afterwards
+      # is one inside the repository. These files are small, and they are the
+      # entire point of the run.
+      - name: Publish the evidence into the repository
+        if: ${{ !cancelled() }}
+        working-directory: .
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          mkdir -p forecaster/reports
+          # -f because live-proof.json is git-ignored for local runs, where it
+          # would be a per-network result nobody else can check. From a runner it
+          # is the opposite: the record everyone needs.
+          git add -f forecaster/reports/venue-reachability.json || true
+          git add -f forecaster/reports/live-proof.json || true
+          if git diff --cached --quiet; then
+            echo "no evidence changed; nothing to commit"
+            exit 0
+          fi
+          git commit -m "Live proof evidence from run ${{ github.run_id }}" \
+            -m "Dispatched with venue='${{ inputs.venue }}' transport='${{ inputs.transport }}' probe_only=${{ inputs.probe_only }}."
+          git push origin HEAD:${{ inputs.ref }}
+          echo "committed to ${{ inputs.ref }}"
 
       # Uploaded even on failure: a BLOCKED or FAILED run is exactly the record
       # worth keeping, and losing it would mean running the hour again.
