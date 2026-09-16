@@ -89,6 +89,8 @@ jobs:
 
       # The track record travels in the repository. First run starts empty.
       - name: Carry the track record forward
+        env:
+          FORECASTER_DB: sqlite:///../evidence/live.db
         run: |
           set -euo pipefail
           mkdir -p ../evidence
@@ -146,6 +148,7 @@ jobs:
         working-directory: .
         run: |
           set -euo pipefail
+          REF="${{ inputs.ref || 'claude/crypto-probability-forecaster-f3qhmn' }}"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           # -f because *.db is git-ignored for local work, where a database is one
@@ -165,13 +168,50 @@ jobs:
           except Exception:
               print('counts unavailable')
           ")
-          git commit -m "Live collection segment ${{ github.run_number }}" -m "Independent observations: $OBS"
-          # Another segment or a person may have pushed meanwhile.
-          for attempt in 1 2 3; do
-            git pull --rebase --autostash origin "${{ inputs.ref || 'claude/crypto-probability-forecaster-f3qhmn' }}" && break
+
+          # Replant onto the branch tip rather than rebase onto it. A rebase that
+          # meets a changed binary database stops on a conflict no merge driver
+          # can resolve and leaves the repository mid-rebase -- and the retry
+          # loop then retries straight back into that wedge, so five hours of
+          # collection is lost to a file nobody else edits. These three paths
+          # have exactly one author, this job, so replacing them wholesale on
+          # top of whatever the branch tip is now is both correct and incapable
+          # of conflicting. Any unrelated commit pushed during the run survives,
+          # because the reset lands on it.
+          KEEP=$(mktemp -d)
+          cp forecaster/evidence/live.db "$KEEP/" 2>/dev/null || true
+          cp forecaster/reports/live-validation.json "$KEEP/" 2>/dev/null || true
+          cp forecaster/reports/live-status.json "$KEEP/" 2>/dev/null || true
+
+          pushed=no
+          for attempt in 1 2 3 4; do
+            git fetch origin "$REF" || { sleep $((attempt * 5)); continue; }
+            git reset --hard "origin/$REF"
+            mkdir -p forecaster/evidence forecaster/reports
+            cp "$KEEP/live.db" forecaster/evidence/ 2>/dev/null || true
+            cp "$KEEP"/live-*.json forecaster/reports/ 2>/dev/null || true
+            git add -f forecaster/evidence/live.db || true
+            git add -f forecaster/reports/live-validation.json forecaster/reports/live-status.json || true
+            if git diff --cached --quiet; then
+              echo "the branch already carries this segment; nothing to push"
+              pushed=yes
+              break
+            fi
+            git commit -m "Live collection segment ${{ github.run_number }}" \
+                       -m "Independent observations: $OBS"
+            if git push origin HEAD:"$REF"; then
+              pushed=yes
+              break
+            fi
+            # Rejected or a network fault: undo the local commit and try the
+            # whole cycle again against the new tip.
+            git reset --soft HEAD~1
             sleep $((attempt * 5))
           done
-          git push origin HEAD:"${{ inputs.ref || 'claude/crypto-probability-forecaster-f3qhmn' }}"
+          if [ "$pushed" != yes ]; then
+            echo "could not push the segment after four attempts"
+            exit 1
+          fi
           echo "committed segment ${{ github.run_number }}: $OBS"
 
       - name: Fail if collection failed
