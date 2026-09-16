@@ -214,6 +214,49 @@ jobs:
           fi
           echo "committed segment ${{ github.run_number }}: $OBS"
 
+      # Growth is quadratic: git stores a whole new copy of the database every
+      # segment, and the database itself grows. Measured on a full segment --
+      # 876 prediction rows, 1,213 bytes each, compressing about 7.4x -- the
+      # fifty-four segments that reach 750 independent twenty-minute
+      # observations cost roughly 200 MiB of git objects. That is the price of
+      # the goal and it is worth paying. Simply leaving the schedule on is not:
+      # the same arithmetic reaches about 1 GiB at thirty days and 8.7 GiB at
+      # ninety, which would wreck the repository. This never blocks a commit --
+      # evidence is already pushed by the time it runs -- it just makes sure
+      # nobody finds out by surprise.
+      - name: Warn before the track record outgrows the repository
+        if: ${{ !cancelled() }}
+        working-directory: .
+        run: |
+          set -euo pipefail
+          test -f forecaster/evidence/live.db || exit 0
+          BYTES=$(stat -c%s forecaster/evidence/live.db)
+          MIB=$(( BYTES / 1048576 ))
+          echo "track record: ${MIB} MiB"
+          if [ "$MIB" -lt 64 ]; then
+            exit 0
+          fi
+          {
+            echo "## The track record is getting large"
+            echo
+            echo "The database is **${MIB} MiB**. Git keeps a full copy per segment, so"
+            echo "the cost of continuing grows with every run."
+            echo
+            echo "The 750-observation goal needs about 54 segments and about 200 MiB."
+            echo "Past that, collecting for its own sake is not free."
+            echo
+            echo "Options, cheapest first:"
+            echo "* turn the schedule off -- the evidence collected is already committed;"
+            echo "* keep collecting but stop committing the database, publishing only the"
+            echo "  two report files;"
+            echo "* move the database out of git."
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$MIB" -ge 192 ]; then
+            echo "::error::The track record is ${MIB} MiB. This segment is committed and safe, but the schedule should be turned off or the database moved out of git."
+            exit 1
+          fi
+          echo "::warning::The track record is ${MIB} MiB and grows with every segment."
+
       - name: Fail if collection failed
         if: ${{ steps.collect.outputs.status != '0' }}
         run: |
