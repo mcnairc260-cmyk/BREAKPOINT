@@ -657,6 +657,37 @@ still open, because those are exactly the ones deleting the feed would strand.
 across the whole collection, and `verify_chain` covers all of it — not one
 segment at a time.
 
+### Two ways the hand-off between segments can fail quietly
+
+Both were found by reproducing them rather than by reading, and both are fixed.
+
+**A rebase over the database used to lose a whole segment, silently.** The commit
+step rebased onto the branch tip. Git cannot merge two versions of a SQLite file,
+so a rebase that met one stopped on a conflict and left the repository
+mid-rebase; the retry loop then retried straight back into the same wedge, and
+the `git push` that followed reported *"Everything up-to-date"* and **exited
+zero**. A green job, five hours of collection gone, nothing to notice. It now
+replants instead — keep the three files this job owns, reset onto the tip, put
+them back, commit, push, and retry the whole cycle on rejection. Any unrelated
+commit pushed during the run survives, because the reset lands on it, and there
+is no conflict to have because these three paths have exactly one author.
+
+**The record cannot live in git forever.** Git stores a whole new copy of the
+database every segment and the database itself grows, so the cost is quadratic
+in segments. Measured, not estimated: a full 320-minute segment writes 876
+prediction rows — 73 sampling instants per symbol across both horizons, six
+ladder rungs each — at 1,213 bytes a row, compressing about 7.4×.
+
+| running for | segments | git objects |
+|---|---|---|
+| 13.4 days — the 750-observation goal | 54 | ~200 MiB |
+| 30 days | 120 | ~1.0 GiB |
+| 90 days | 360 | ~8.7 GiB |
+
+The goal is worth its 200 MiB. Leaving the schedule on afterwards is not, so the
+workflow warns at 64 MiB and fails at 192 MiB — always *after* the segment is
+committed and pushed, so the check can never cost evidence.
+
 ### What will come out of it
 
 `forecaster live-report` will fill in Brier, log loss, calibration error and
