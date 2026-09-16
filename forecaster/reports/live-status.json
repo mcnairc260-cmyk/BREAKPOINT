@@ -1,0 +1,122 @@
+{
+  "generated": "2026-09-16T06:55:07.360889Z",
+  "data_source": "live",
+  "runner": {
+    "running": false,
+    "reason": "the runner recorded a clean shutdown",
+    "updated": "2026-09-16T06:54:59.834643Z",
+    "uptime_s": 19200.019497051,
+    "venue": "coinbase",
+    "data_source": "live",
+    "reconnects": 1,
+    "malformed_messages": 0,
+    "stale_refusals": 0,
+    "recent_errors": [
+      "2026-09-16T01:44:59.834432Z sample BTC-USD/300s: only 601s of history; 1800s required",
+      "2026-09-16T01:44:59.837787Z sample ETH-USD/300s: only 603s of history; 1800s required",
+      "2026-09-16T01:49:59.841212Z sample BTC-USD/300s: only 901s of history; 1800s required",
+      "2026-09-16T01:49:59.846182Z sample ETH-USD/300s: only 903s of history; 1800s required",
+      "2026-09-16T01:54:59.835305Z sample ETH-USD/1200s: only 1203s of history; 1800s required",
+      "2026-09-16T01:54:59.830158Z sample BTC-USD/1200s: only 1201s of history; 1800s required",
+      "2026-09-16T01:54:59.851507Z sample BTC-USD/300s: only 1201s of history; 1800s required",
+      "2026-09-16T01:54:59.854928Z sample ETH-USD/300s: only 1203s of history; 1800s required",
+      "2026-09-16T01:59:59.862850Z sample ETH-USD/300s: only 1503s of history; 1800s required",
+      "2026-09-16T01:59:59.857750Z sample BTC-USD/300s: only 1501s of history; 1800s required"
+    ]
+  },
+  "feeds": [
+    {
+      "symbol": "BTC-USD",
+      "connected": false,
+      "last_market_event": null,
+      "last_event_age_s": null,
+      "first_market_event": null,
+      "collected_duration_s": 0.0,
+      "events_collected": {
+        "trades": 0,
+        "quotes": 0,
+        "books": 0,
+        "bars": 0
+      },
+      "forecasts": 402,
+      "refusals": 6,
+      "last_refusal": "InsufficientData: only 1501s of history; 1800s required"
+    },
+    {
+      "symbol": "ETH-USD",
+      "connected": false,
+      "last_market_event": null,
+      "last_event_age_s": null,
+      "first_market_event": null,
+      "collected_duration_s": 0.0,
+      "events_collected": {
+        "trades": 0,
+        "quotes": 0,
+        "books": 0,
+        "bars": 0
+      },
+      "forecasts": 402,
+      "refusals": 6,
+      "last_refusal": "InsufficientData: only 1503s of history; 1800s required"
+    }
+  ],
+  "learner_threshold": {
+    "min_independent_observations": 750,
+    "counted_in": "non-overlapping observations, never rows",
+    "note": "The threshold is not weakened by sampling faster. Six targets at one instant are six views of one future price, and two forecasts five seconds apart at a five-minute horizon share 295 of their 300 seconds."
+  },
+  "per_horizon_progress": [
+    {
+      "symbol": "BTC-USD",
+      "horizon_s": 300,
+      "resolved_rows": 324,
+      "distinct_timestamps": 54,
+      "independent_observations": 54,
+      "days_represented": 0.18414834977278935,
+      "threshold": 750,
+      "fraction_of_threshold": 0.072,
+      "observations_remaining": 696,
+      "rate_per_day_so_far": 293.2418350022016,
+      "implied_days_at_this_rate": 2.3734676192937294
+    },
+    {
+      "symbol": "BTC-USD",
+      "horizon_s": 1200,
+      "resolved_rows": 78,
+      "distinct_timestamps": 13,
+      "independent_observations": 13,
+      "days_represented": 0.16670249521131944,
+      "threshold": 750,
+      "fraction_of_threshold": 0.017333333333333333,
+      "observations_remaining": 737,
+      "rate_per_day_so_far": 77.98323584491418,
+      "implied_days_at_this_rate": 9.450749151595572
+    },
+    {
+      "symbol": "ETH-USD",
+      "horizon_s": 300,
+      "resolved_rows": 324,
+      "distinct_timestamps": 54,
+      "independent_observations": 54,
+      "days_represented": 0.18408297757908565,
+      "threshold": 750,
+      "fraction_of_threshold": 0.072,
+      "observations_remaining": 696,
+      "rate_per_day_so_far": 293.3459720728417,
+      "implied_days_at_this_rate": 2.3726250443526595
+    },
+    {
+      "symbol": "ETH-USD",
+      "horizon_s": 1200,
+      "resolved_rows": 78,
+      "distinct_timestamps": 13,
+      "independent_observations": 13,
+      "days_represented": 0.1667018013464815,
+      "threshold": 750,
+      "fraction_of_threshold": 0.017333333333333333,
+      "observations_remaining": 737,
+      "rate_per_day_so_far": 77.98356043543968,
+      "implied_days_at_this_rate": 9.450709814796681
+    }
+  ]
+}
