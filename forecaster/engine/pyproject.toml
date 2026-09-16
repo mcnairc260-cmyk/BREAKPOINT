@@ -23,7 +23,16 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4", "mypy>=1.9"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    # Not optional in practice: `addopts` below passes --disable-socket, so
+    # without this pytest aborts on an unrecognised argument before it collects
+    # a single test, and mypy cannot resolve the import in cli/verify.py.
+    "pytest-socket>=0.7",
+    "ruff>=0.4",
+    "mypy>=1.9",
+]
 
 [project.scripts]
 forecaster = "forecaster.cli.main:main"
