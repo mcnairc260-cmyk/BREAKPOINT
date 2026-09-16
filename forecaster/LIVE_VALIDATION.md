@@ -697,16 +697,31 @@ started at 64 and 192 MiB, which the real figures show would have fired the
 warning at segment 35, in the middle of the very run it exists to protect. An
 alarm that goes off during normal operation is how people learn to ignore it.
 
-**The schedule is best effort, and has to be treated as such.** Both of the
-first two scheduled runs were dropped by GitHub — not delayed: no run was
-created at all, not even a queued one, while the workflow showed as active.
-Segments 1 to 3 were all dispatched by hand. The cron now asks every three
-hours rather than six, at 23 past rather than on the hour: minute 0 is when
-every cron in the world is queued at once, and asking twice as often is free
-because the concurrency group keeps at most one run pending, so a newly queued
-run replaces the waiting one instead of stacking behind it. A segment is
-therefore always waiting to start the moment the last one ends, and a dropped
-run costs a three-hour gap rather than six.
+**The schedule is best effort, and has to be treated as such.** Three
+consecutive scheduled slots produced no run at all — not delayed, not queued:
+nothing created, while the workflow showed as active and manual dispatch worked
+fine. Every fixable cause was ruled out: public repository, not a fork, not
+archived, workflow active, cron valid.
+
+On that evidence the schedule looked dead, and this section said so. It is not.
+The 18:23 slot on 16 September was delivered at **18:56 — thirty-three minutes
+late**, but delivered. So the correct description is *unreliable and late*, not
+broken, and anything built on top of it has to tolerate both a long delay and
+an outright miss.
+
+The cron therefore asks every three hours rather than six, at 23 past rather
+than on the hour. Minute 0 is when every cron in the world is queued at once,
+and asking twice as often is free: the concurrency group keeps at most one run
+pending, so a newly queued run replaces the waiting one instead of stacking
+behind it. A segment is always waiting to start the moment the last one ends,
+and a missed slot costs a three-hour gap rather than six.
+
+A second, independent driver sits alongside it, because one unreliable
+mechanism is not a plan for a fortnight: a scheduled Routine wakes the working
+session every five hours and dispatches a segment if the cron has not. Two
+drivers, one concurrency group, at most one pending run — the duplication costs
+nothing and removes the single point of failure. Segments 1 to 4 were all
+dispatched by hand while this was being worked out.
 
 ### What will come out of it
 
