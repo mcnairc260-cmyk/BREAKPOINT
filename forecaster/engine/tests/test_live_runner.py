@@ -37,7 +37,7 @@ from forecaster.store import (
     QualityRepository,
     open_database,
 )
-from forecaster.types import DataSource, Outcome
+from forecaster.types import NS_PER_SECOND, DataSource, Outcome
 
 HORIZON_S = 12
 RUN_S = 55.0
@@ -499,3 +499,122 @@ async def test_a_segment_resolves_everything_it_starts(tmp_path: Path) -> None:
     assert any("too short" in error for error in runner.status.errors), (
         "a run too short to self-contain must say so rather than pretend"
     )
+
+
+# ---------------------------------------------------------------------------
+# A run that collected nothing must not look like a run that collected evidence
+# ---------------------------------------------------------------------------
+
+
+def _collect_live_exit(summary: dict) -> int:
+    """The exit code `collect-live` itself would return for this summary.
+
+    Calls the real decision rather than restating it. A test that re-implemented
+    the rule would agree with itself no matter what the command did, which is no
+    guard at all against a failure whose whole danger is that it looks like
+    success.
+    """
+    from forecaster.cli.main import collection_exit_code
+
+    code, _ = collection_exit_code(summary)
+    return code
+
+
+def test_a_run_that_wrote_no_forecasts_exits_non_zero() -> None:
+    """The defect this guards against was silent, which is what made it dangerous.
+
+    `collect-live` used to return 0 unconditionally. A scheduled collection that
+    reached no exchange wrote nothing, exited 0, committed nothing, and ended
+    green — indistinguishable in CI from a segment carrying five hours of real
+    market data.
+    """
+    from forecaster.cli.main import EXIT_NO_FORECASTS
+
+    barren = {"data_source": "live", "per_symbol": {"BTC-USD": {"forecasts": 0}}}
+    assert _collect_live_exit(barren) == EXIT_NO_FORECASTS
+
+    productive = {"data_source": "live", "per_symbol": {"BTC-USD": {"forecasts": 324}}}
+    assert _collect_live_exit(productive) == 0
+
+
+def test_a_run_on_a_non_live_feed_exits_non_zero_however_much_it_collected() -> None:
+    """Volume is not provenance. A simulated feed producing thousands of
+    forecasts is not real-market evidence, and must fail loudly rather than
+    quietly accumulate into a track record."""
+    from forecaster.cli.main import EXIT_NOT_LIVE
+
+    for source in (DataSource.SIMULATED, DataSource.REPLAY):
+        busy = {"data_source": source.value, "per_symbol": {"BTC-USD": {"forecasts": 9_999}}}
+        assert _collect_live_exit(busy) == EXIT_NOT_LIVE
+
+
+# ---------------------------------------------------------------------------
+# Stitching segments together must not disturb the record
+# ---------------------------------------------------------------------------
+
+
+def test_segments_stitch_without_disturbing_order_or_the_chain(tmp_path: Path) -> None:
+    """Three bounded runs against one database, as the collection workflow does.
+
+    The invariant is per-stream, not global: four forecast loops run
+    concurrently and each stamps `created_ns` before taking the append lock, so
+    ids can interleave by milliseconds between streams. Asserting global
+    monotonicity would fail on healthy data. What must hold is that no single
+    (symbol, horizon) stream ever goes backwards, that no segment boundary
+    reorders anything, and that the chain spans the joins.
+    """
+    _, _, _, prediction_repo, _, _ = build(tmp_path)
+    base = now_ns()
+    for segment in range(3):
+        for step in range(4):
+            as_of = base + (segment * 10_000 + step * 1_000) * NS_PER_SECOND
+            for symbol in ("BTC-USD", "ETH-USD"):
+                prediction_repo.append(
+                    {
+                        "created_ns": as_of,
+                        "as_of_ns": as_of,
+                        "eval_at_ns": as_of + HORIZON_S * NS_PER_SECOND,
+                        "horizon_s": HORIZON_S,
+                        "venue": "coinbase",
+                        "symbol": symbol,
+                        "spot": 100.0,
+                        "target": 101.0,
+                        "z": 0.1,
+                        "sigma": 0.01,
+                        "p_above": 0.4,
+                        "range_low": 99.0,
+                        "range_high": 102.0,
+                        "range_confidence": 0.8,
+                        "median": 100.0,
+                        "confidence": "LOW",
+                        "confidence_reasons": "[]",
+                        "service_level": "ok",
+                        "model_version": "baseline-t@untrained",
+                        "model_train_source": "simulated",
+                        "calibration_source": None,
+                        "data_source": DataSource.LIVE.value,
+                        "prediction_mode": "live",
+                        "features_json": "{}",
+                        "feature_set_version": "fs-1",
+                        "contributions_json": "[]",
+                    }
+                )
+
+    stored = prediction_repo.history(limit=10_000, prediction_mode="live")
+    assert len(stored) == 24
+    # The chain spans every segment join, not one segment at a time.
+    assert prediction_repo.verify_chain() == 24
+
+    by_stream: dict[tuple[str, int], list[int]] = {}
+    for row in sorted(stored, key=lambda r: int(r["id"])):
+        by_stream.setdefault((row["symbol"], int(row["horizon_s"])), []).append(
+            int(row["as_of_ns"])
+        )
+    assert by_stream, "no streams recorded"
+    for key, stamps in by_stream.items():
+        assert stamps == sorted(stamps), f"{key} went backwards across a segment join"
+        assert len(set(stamps)) == len(stamps), f"{key} repeated a timestamp across segments"
+
+    # No duplicate forecast survived the joins.
+    seen = {(r["symbol"], r["horizon_s"], r["as_of_ns"], r["target"]) for r in stored}
+    assert len(seen) == len(stored), "stitching produced a duplicate forecast"

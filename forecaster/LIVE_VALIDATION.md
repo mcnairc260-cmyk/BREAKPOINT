@@ -736,6 +736,60 @@ in-sample data, irreversibly. If the answer turns out to be *"the probabilities
 are roughly right and the learner does not beat the baseline"*, that is a real
 result and it gets reported as one.
 
+### The Brier skill score will look excellent, and it will be measuring geometry
+
+This is the trap the whole design exists to avoid, and the first day of live data
+walked straight into it. Scored the obvious way — all forecasts pooled, against a
+no-information reference — sixteen hours of live evidence produced:
+
+| cell | pooled BSS vs climatology | 95% CI |
+|---|---|---|
+| BTC 5m | **+0.29** | [+0.24, +0.34] |
+| BTC 20m | **+0.31** | [+0.19, +0.41] |
+| ETH 5m | **+0.37** | [+0.32, +0.41] |
+| ETH 20m | **+0.38** | [+0.28, +0.46] |
+
+Four cells, every interval clear of zero. It would be easy, and wrong, to call
+that skill.
+
+Each sampling instant emits six forecasts at fixed distances from spot — the
+ladder at z = 0, ±0.25, ±1.0, +2.5. A target two and a half standard deviations
+away is almost never crossed, and saying so is arithmetic. Pool the rungs and
+score against a pooled base rate, and the reference is forced to average six
+questions with very different answers while the model answers each separately.
+The gap between them is the ladder's shape, not the forecaster's insight. The
+reliability table gives it away: exactly 162 rows in each of six probability
+bins, one bin per rung.
+
+The reference that isolates skill is each rung against **its own** base rate: at
+a given distance, can the model tell a likely instant from an unlikely one?
+
+| cell | stratified BSS | 95% CI | independent instants |
+|---|---|---|---|
+| BTC 5m | −0.0090 | [−0.039, −0.004] | 162 |
+| BTC 20m | −0.0330 | [−0.209, −0.010] | 39 |
+| ETH 5m | −0.0005 | [−0.024, −0.001] | 162 |
+| ETH 20m | −0.0039 | [−0.114, −0.004] | 39 |
+
+Essentially zero, fractionally below it. Two things about that number, and both
+matter.
+
+It is **bounded above by zero almost by construction**: a rung's realised base
+rate is the constant that minimises Brier score on that very sample, so an
+in-sample climatological reference cannot be beaten by anything, and sitting
+within half a percent of it — as ETH 5m does — means the probabilities are as
+good as an oracle told the period's frequency in advance.
+
+And it is **exactly what a zero-drift model should score.** `baseline-t` has no
+mechanism for distinguishing one instant from another at a fixed z; its only
+input is a volatility estimate. Discriminative skill is not a thing it claims.
+If a later learner cannot beat this, the learner is worthless; if it appears to
+beat the *pooled* figure, it has learned the ladder.
+
+So the position after day one: **calibration is good, discrimination is unproven
+and by design absent.** The pooled score is the one that will be quoted at you,
+and it is the one that means least.
+
 ---
 
 ## 12. Reproducing it
