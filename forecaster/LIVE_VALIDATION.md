@@ -674,19 +674,39 @@ is no conflict to have because these three paths have exactly one author.
 
 **The record cannot live in git forever.** Git stores a whole new copy of the
 database every segment and the database itself grows, so the cost is quadratic
-in segments. Measured, not estimated: a full 320-minute segment writes 876
-prediction rows — 73 sampling instants per symbol across both horizons, six
-ladder rungs each — at 1,213 bytes a row, compressing about 7.4×.
+in segments.
 
-| running for | segments | git objects |
-|---|---|---|
-| 13.4 days — the 750-observation goal | 54 | ~200 MiB |
-| 30 days | 120 | ~1.0 GiB |
-| 90 days | 360 | ~8.7 GiB |
+The first version of this section estimated that cost from a simulated segment
+and got it wrong in both directions. A live prediction row costs **2,372 bytes**,
+not the 1,213 a simulated row suggested — but the real file compresses **10.3×**
+rather than 7.4×. Two real segments measure **1.82 MiB each**, holding 804 rows
+apiece: 67 sampling instants per symbol across both horizons, six ladder rungs
+each, after 30 minutes of warm-up in which the runner refuses to forecast
+because it has less than 1,800 seconds of history.
 
-The goal is worth its 200 MiB. Leaving the schedule on afterwards is not, so the
-workflow warns at 64 MiB and fails at 192 MiB — always *after* the segment is
-committed and pushed, so the check can never cost evidence.
+| running for | segments | database | git objects |
+|---|---|---|---|
+| 13.4 days — the 750-observation goal | 54 | ~98 MiB | ~262 MiB |
+| 30 days | 120 | ~218 MiB | ~1.3 GiB |
+| 90 days | 360 | ~655 MiB | ~11 GiB |
+
+The goal is worth its 262 MiB. Leaving the schedule on afterwards is not, so the
+workflow warns at 128 MiB and fails at 320 MiB — always *after* the segment is
+committed and pushed, so the check can never cost evidence. The thresholds
+started at 64 and 192 MiB, which the real figures show would have fired the
+warning at segment 35, in the middle of the very run it exists to protect. An
+alarm that goes off during normal operation is how people learn to ignore it.
+
+**The schedule is best effort, and has to be treated as such.** Both of the
+first two scheduled runs were dropped by GitHub — not delayed: no run was
+created at all, not even a queued one, while the workflow showed as active.
+Segments 1 to 3 were all dispatched by hand. The cron now asks every three
+hours rather than six, at 23 past rather than on the hour: minute 0 is when
+every cron in the world is queued at once, and asking twice as often is free
+because the concurrency group keeps at most one run pending, so a newly queued
+run replaces the waiting one instead of stacking behind it. A segment is
+therefore always waiting to start the moment the last one ends, and a dropped
+run costs a three-hour gap rather than six.
 
 ### What will come out of it
 
