@@ -161,6 +161,7 @@ much is, and that is what makes the product possible.
 | `forecaster report` | Performance statistics, grouped and caveated. |
 | `forecaster serve` | Run the API, the collector and the evaluator. |
 | `forecaster live-proof` | The whole live proof in one command. Exits 0 only on PROVEN. |
+| `forecaster compact` | Drop raw ticks, keep every prediction and outcome. |
 | `forecaster live-check` | Connect to a real venue and verify every price it reports. |
 | `forecaster collect-live` | Collect live data and forecast against it, unattended. |
 | `forecaster live-status` | Feed health and progress toward the learner threshold. |

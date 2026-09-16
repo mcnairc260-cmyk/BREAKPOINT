@@ -418,3 +418,84 @@ def test_targets_are_placed_in_log_space_and_stay_positive() -> None:
     assert place(fake, 0.0, 0.01) == []
     assert place(fake, 100.0, 0.0) == []
     assert place(fake, 100.0, float("nan")) == []
+
+
+# ---------------------------------------------------------------------------
+# Segments. A multi-day track record is built from bounded runs.
+# ---------------------------------------------------------------------------
+
+
+def test_a_self_contained_run_stops_sampling_before_it_stops_collecting() -> None:
+    """Every forecast a segment starts must also expire inside it.
+
+    A segment drops its raw ticks when it ends, and a forecast still open when
+    the ticks go is scored VOID afterwards. Sampling to the last second would
+    therefore end every segment with a tail of voids caused by the schedule
+    rather than by the market — and across a fortnight of segments that would
+    quietly become the dominant term in the void rate.
+    """
+    from forecaster.service.liverunner import SAMPLING_CUTOFF_MARGIN_S
+
+    seconds, horizon = 3600.0, 1200
+    cutoff = seconds - horizon - SAMPLING_CUTOFF_MARGIN_S
+    assert cutoff > 0
+    # The last forecast starts at the cutoff and expires a full horizon later,
+    # with the margin left over for the evaluator to score it.
+    assert cutoff + horizon + SAMPLING_CUTOFF_MARGIN_S == seconds
+
+
+def test_the_cutoff_is_off_by_default() -> None:
+    """Wrong for a one-shot run, and the live proof is a one-shot run.
+
+    `live-proof` budgets warm-up + 2x the longest horizon precisely so forecasts
+    can be made and then expire. Taking another horizon off the end double-counts
+    that allowance and would cut the proof from 22 sampling instants to about 10.
+    Unresolved forecasts at the end of a one-shot run are merely unscored, which
+    is harmless. At the end of a segment they are voids, which is not.
+    """
+    import inspect
+
+    from forecaster.service.liverunner import LiveRunner as Runner
+
+    assert inspect.signature(Runner.run).parameters["self_contained"].default is False
+
+
+@pytest.mark.enable_socket
+@pytest.mark.allow_hosts(["127.0.0.1", "::1"])
+async def test_a_segment_resolves_everything_it_starts(tmp_path: Path) -> None:
+    """The contract, over a socket: predictions == outcomes, and no voids."""
+    url = f"sqlite:///{tmp_path}/segment.db"
+    database = open_database(url)
+    config = Config(database_url=url, data_dir=tmp_path)
+    market, predictions = MarketRepository(database), PredictionRepository(database)
+
+    horizon, run_for = 12, 40.0
+    async with CoinbaseConformanceVenue(rate_hz=80.0, history_s=2400.0) as venue:
+        provider = CoinbaseProvider(ws_url=venue.ws_url, rest_url=venue.rest_url)
+        collector = Collector(
+            provider=provider,
+            market_repo=market,
+            quality_repo=QualityRepository(database),
+            symbols=("BTC-USD",),
+            bar_resolutions_s=config.bar_resolutions_s,
+            monitor=QualityMonitor(config.quality),
+        )
+        runner = LiveRunner(
+            provider=provider,
+            collector=collector,
+            engine=ForecastEngine(baseline=BaselineModel(config=config.model), config=config),
+            prediction_repo=predictions,
+            market_repo=market,
+            config=config,
+            symbols=("BTC-USD",),
+            horizons_s=(horizon,),
+            interval_s={horizon: 4.0},
+            status_path=tmp_path / "status.json",
+        )
+        # Margin is 120s, far longer than this test run, so the cutoff cannot
+        # apply — the run records that rather than silently sampling anyway.
+        await runner.run(seconds=run_for, self_contained=True)
+
+    assert any("too short" in error for error in runner.status.errors), (
+        "a run too short to self-contain must say so rather than pretend"
+    )

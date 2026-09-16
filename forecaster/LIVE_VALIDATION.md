@@ -612,7 +612,67 @@ about itself, which is why the two are reported separately everywhere.
 
 ---
 
-## 11. Reproducing it
+## 11. The track record, and why it takes a fortnight
+
+The proof answered *does this work on a real market*. The separate question —
+*are the probabilities any good* — is running now, and cannot be hurried.
+
+**Actions → Live collection.** Every six hours, automatically. Each run collects
+for 320 minutes and commits what it found.
+
+The arithmetic that sets the pace: the honest unit is the **non-overlapping
+observation**, and a day holds only 288 five-minute and 72 twenty-minute ones per
+symbol. Against the learner's unchanged threshold of 750:
+
+| horizon | independent observations per day | days to 750 |
+|---|---|---|
+| 5 minutes | ~212 | **~4** |
+| 20 minutes | ~52 | **~14** |
+
+Sampling faster does not move those numbers. Two forecasts five seconds apart at
+a five-minute horizon share 295 of their 300 seconds, and six targets at one
+instant are six views of one future price.
+
+### Three details that make segmented collection honest
+
+**Each segment self-contains.** A run stops *sampling* twenty minutes before it
+stops *collecting*, so every forecast it starts also expires inside it. Without
+that, each segment would end with a tail of forecasts that can never resolve and
+are scored VOID — and across a fortnight that scheduling artefact would become
+the dominant term in the void rate, looking exactly like a data-quality problem.
+
+The cutoff is deliberately **off by default**, because it is wrong for a one-shot
+run. `live-proof` budgets warm-up + twice the longest horizon precisely so that
+forecasts can be made and then expire; taking another horizon off the end
+double-counts that and would cut the proof from 22 sampling instants to about 10.
+
+**Each segment then drops its ticks.** A resolved outcome already stores the
+price it was scored at, immutably, so deleting the feed cannot alter a recorded
+result — and it takes the database from megabytes to kilobytes. Measured on a
+test segment: 5,004 KiB to 124 KiB, every prediction and outcome kept, hash chain
+still verifying. `forecaster compact` refuses to run while any prediction is
+still open, because those are exactly the ones deleting the feed would strand.
+
+**The chain spans segments.** Predictions accumulate in one append-only log
+across the whole collection, and `verify_chain` covers all of it — not one
+segment at a time.
+
+### What will come out of it
+
+`forecaster live-report` will fill in Brier, log loss, calibration error and
+probability-bucket performance per cell, and stop printing INSUFFICIENT once
+each has enough independent observations to mean something.
+
+Nothing is trained or tuned along the way. The first live sample is evidence, not
+a tuning set: changing features or calibration because early numbers look
+unflattering would convert the only out-of-sample data in existence into
+in-sample data, irreversibly. If the answer turns out to be *"the probabilities
+are roughly right and the learner does not beat the baseline"*, that is a real
+result and it gets reported as one.
+
+---
+
+## 12. Reproducing it
 
 Actions → **Live market proof** → Run workflow. About 72 minutes. The run commits
 its own evidence to `reports/live-proof.json` and attaches it to the run.

@@ -100,6 +100,10 @@ STATUS_INTERVAL_S = 5.0
 #: How often expired forecasts are scored.
 EVALUATE_INTERVAL_S = 5.0
 
+#: Slack between the last forecast a bounded run may start and the run's end, on
+#: top of the horizon itself, so the evaluator has time to score it.
+SAMPLING_CUTOFF_MARGIN_S = 120.0
+
 STATUS_FILENAME = "live_runner_status.json"
 
 
@@ -146,6 +150,8 @@ class RunnerStatus:
     evaluated: int = 0
     voided: int = 0
     stopped: bool = False
+    sampling_deadline_ns: int | None = None
+    """When a bounded run stops starting new forecasts. See `LiveRunner.run`."""
     """Set on clean shutdown. Without it a status file written seconds before the
     process exited reads as a running collector for as long as the staleness
     window lasts, which is the one question this file exists to answer."""
@@ -166,6 +172,9 @@ class RunnerStatus:
             "sampling_interval_s": {str(k): v for k, v in sorted(self.interval_s.items())},
             "target_ladder_z": list(self.ladder_z),
             "stopped": self.stopped,
+            "sampling_stops_at": (
+                iso(self.sampling_deadline_ns) if self.sampling_deadline_ns else None
+            ),
             "connected": self.connected and not self.stopped,
             "last_event": iso(self.last_event_ns) if self.last_event_ns else None,
             "feed_age_s": age,
@@ -226,6 +235,8 @@ class LiveRunner:
             progress={s: SymbolProgress(symbol=s) for s in symbols},
         )
         self._stop = asyncio.Event()
+        #: When set, no new forecast is started after this instant. See `run()`.
+        self._sampling_deadline_ns: int | None = None
 
     # -- targets -------------------------------------------------------------
 
@@ -320,6 +331,11 @@ class LiveRunner:
                 await asyncio.wait_for(self._stop.wait(), timeout=interval)
             if self._stop.is_set():
                 return
+            if self._sampling_deadline_ns is not None and now_ns() >= self._sampling_deadline_ns:
+                # Past the deadline a new forecast could not expire before the
+                # run ends, so making one would only produce a void. Collection
+                # and evaluation continue; only sampling stops.
+                return
             # Deliberately not in a try/except here: `sample_once` handles its
             # own failures and records them, so this loop cannot die of one.
             await asyncio.to_thread(self.sample_once, symbol, horizon_s)
@@ -369,8 +385,42 @@ class LiveRunner:
         except OSError as exc:
             self.status.errors.append(f"{iso(now_ns())} status write: {exc}")
 
-    async def run(self, *, seconds: float | None = None) -> RunnerStatus:
-        """Run until stopped, or for `seconds` if given."""
+    async def run(
+        self, *, seconds: float | None = None, self_contained: bool = False
+    ) -> RunnerStatus:
+        """Run until stopped, or for `seconds` if given.
+
+        `self_contained` makes the run stop *sampling* before it stops
+        *collecting*, so every forecast it starts also expires inside it.
+
+        That is what a segment of a multi-day track record needs. Such a segment
+        drops its raw ticks when it ends, and a forecast left open when the ticks
+        go is scored VOID later — so sampling to the last second would end every
+        segment with a tail of voids that say nothing about the market. With the
+        cutoff, each segment resolves everything it starts and the void rate
+        means what it should.
+
+        It is deliberately **off** by default, because it is wrong for a one-shot
+        run whose budget already accounts for expiry. Applying it to the live
+        proof would cut that run from 22 sampling instants to about 10: its
+        budget is warm-up + 2x the longest horizon precisely so that forecasts
+        can be made and then expire, and taking another horizon off the end
+        double-counts the same allowance. Unresolved forecasts at the end of a
+        one-shot run are simply not yet scored, which is harmless; unresolved
+        forecasts at the end of a segment are voids, which is not.
+
+        Collection and evaluation always continue to the end. Only new sampling
+        stops.
+        """
+        if seconds is not None and self_contained:
+            quiet_from = seconds - max(self.horizons_s) - SAMPLING_CUTOFF_MARGIN_S
+            if quiet_from > 0:
+                self._sampling_deadline_ns = now_ns() + int(quiet_from * NS_PER_SECOND)
+            else:
+                self.status.errors.append(
+                    f"{iso(now_ns())} run of {seconds:.0f}s is too short for a "
+                    f"{max(self.horizons_s)}s horizon to be sampled and resolved"
+                )
         self.write_status()
         tasks = [
             asyncio.create_task(self._collect_loop(), name="collect"),
@@ -404,6 +454,7 @@ class LiveRunner:
                 self.status.evaluated += run.resolved
                 self.status.voided += run.voided
             self.refresh_status()
+            self.status.sampling_deadline_ns = self._sampling_deadline_ns
             self.status.stopped = True
             self.write_status()
         return self.status

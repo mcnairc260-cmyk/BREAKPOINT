@@ -1,0 +1,182 @@
+# The track record: consecutive bounded runs, assembled into days of evidence.
+#
+# The live proof answered "does this work on a real market" in 72 minutes. This
+# answers the separate and much harder question — "are the probabilities any
+# good" — and it cannot be answered quickly, because the honest unit of evidence
+# is the non-overlapping observation and there are only 288 five-minute and 72
+# twenty-minute ones in a day per symbol.
+#
+#   5-minute model:  750 independent observations ≈ 3-4 days
+#   20-minute model: 750 independent observations ≈ 14 days
+#
+# A GitHub job stops at six hours, so this runs every six and resumes from the
+# database it committed last time. Three details make that work:
+#
+#   * Each segment stops *sampling* twenty minutes before it stops *collecting*,
+#     so every forecast it starts also expires inside the same segment. Without
+#     that, each run would end with a tail of forecasts that can never resolve
+#     and would be scored VOID for reasons that have nothing to do with the
+#     market.
+#   * Each segment then drops its raw ticks and keeps only predictions and
+#     outcomes. A resolved outcome already stores the price it was scored at, so
+#     deleting the feed cannot alter a recorded result — and it takes the
+#     database from megabytes to kilobytes.
+#   * The hash chain spans segments. Predictions accumulate in one append-only
+#     log across the whole collection, and `verify_chain` covers all of it.
+#
+# Nothing here trains or tunes anything. The learner stays quarantined behind its
+# 750-observation threshold, and the first live sample is evidence, not a tuning
+# set.
+name: Live collection
+
+on:
+  schedule:
+    # Every six hours. Scheduled workflows run only from the default branch, and
+    # GitHub disables them after 60 days without repository activity.
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      venue:
+        description: 'Exchange (blank = probe and pick the first that answers)'
+        required: false
+        default: 'coinbase'
+        type: choice
+        options: ['', 'coinbase', 'kraken', 'binance', 'binance.us']
+      minutes:
+        description: 'Collection length in minutes (320 fits inside the 6-hour cadence)'
+        required: false
+        default: '320'
+        type: string
+      ref:
+        description: 'Branch holding the forecaster and its track record'
+        required: false
+        default: 'claude/crypto-probability-forecaster-f3qhmn'
+        type: string
+
+concurrency:
+  # Never two collectors on one database. A late run waits rather than racing.
+  group: live-collect
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  collect:
+    name: Collect live market data
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    defaults:
+      run:
+        shell: bash
+        working-directory: forecaster/engine
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || 'claude/crypto-probability-forecaster-f3qhmn' }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install the engine
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      # The track record travels in the repository. First run starts empty.
+      - name: Carry the track record forward
+        run: |
+          set -euo pipefail
+          mkdir -p ../evidence
+          if [ -f ../evidence/live.db ]; then
+            SIZE=$(du -h ../evidence/live.db | cut -f1)
+            echo "resuming from an existing track record ($SIZE)"
+            forecaster live-status || true
+          else
+            echo "no track record yet; this is the first segment"
+          fi
+
+      - name: Collect
+        id: collect
+        env:
+          FORECASTER_DB: sqlite:///../evidence/live.db
+          FORECASTER_PROVIDER: live
+          FORECASTER_VENUE: ${{ inputs.venue || 'coinbase' }}
+        run: |
+          set -euo pipefail
+          MINUTES="${{ inputs.minutes || '320' }}"
+          SECONDS_TO_RUN=$(( MINUTES * 60 ))
+          echo "collecting for ${MINUTES} minutes"
+          set +e
+          forecaster collect-live --seconds "$SECONDS_TO_RUN" | tee collect.txt
+          echo "status=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          set -e
+          { echo '## Collection'; echo '```'; tail -30 collect.txt; echo '```'; } \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      # Everything this segment started has expired by now, so the ticks have
+      # done their job. Refuses to run if anything is still open.
+      - name: Drop the ticks, keep the evidence
+        if: ${{ !cancelled() }}
+        env:
+          FORECASTER_DB: sqlite:///../evidence/live.db
+        run: |
+          set -euo pipefail
+          forecaster evaluate || true
+          forecaster compact --data-source live --vacuum
+
+      - name: Report
+        if: ${{ !cancelled() }}
+        env:
+          FORECASTER_DB: sqlite:///../evidence/live.db
+        run: |
+          set -euo pipefail
+          mkdir -p ../reports
+          forecaster live-report --json ../reports/live-validation.json | tee report.txt
+          forecaster live-status --json > ../reports/live-status.json || true
+          { echo '## Track record so far'; echo '```'; cat report.txt; echo '```'; } \
+            >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit the segment
+        if: ${{ !cancelled() }}
+        working-directory: .
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          # -f because *.db is git-ignored for local work, where a database is one
+          # person's scratch. Here it is the track record itself.
+          git add -f forecaster/evidence/live.db || true
+          git add -f forecaster/reports/live-validation.json forecaster/reports/live-status.json || true
+          if git diff --cached --quiet; then
+            echo "nothing changed; not committing"
+            exit 0
+          fi
+          OBS=$(python -c "
+          import json
+          try:
+              d = json.load(open('forecaster/reports/live-status.json'))
+              rows = d.get('per_horizon_progress', [])
+              print(' '.join(f\"{r['symbol'].split('-')[0]}{r['horizon_s']//60}m={r['independent_observations']}\" for r in rows))
+          except Exception:
+              print('counts unavailable')
+          ")
+          git commit -m "Live collection segment ${{ github.run_number }}" -m "Independent observations: $OBS"
+          # Another segment or a person may have pushed meanwhile.
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash origin "${{ inputs.ref || 'claude/crypto-probability-forecaster-f3qhmn' }}" && break
+            sleep $((attempt * 5))
+          done
+          git push origin HEAD:"${{ inputs.ref || 'claude/crypto-probability-forecaster-f3qhmn' }}"
+          echo "committed segment ${{ github.run_number }}: $OBS"
+
+      - name: Fail if collection failed
+        if: ${{ steps.collect.outputs.status != '0' }}
+        run: |
+          set -euo pipefail
+          echo "The collector exited non-zero. The segment's evidence, if any, is committed."
+          exit 1

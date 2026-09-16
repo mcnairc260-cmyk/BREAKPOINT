@@ -639,7 +639,14 @@ def cmd_collect_live(args: argparse.Namespace) -> int:
     print("  ctrl-c to stop. Forecasts already written are resolved on the next start.\n")
 
     try:
-        status = asyncio.run(_with_quiet(install_quiet, runner.run(seconds=args.seconds)))
+        # Self-contained: a bounded collection is a segment of a longer track
+        # record, and a segment that leaves forecasts open ends in voids.
+        status = asyncio.run(
+            _with_quiet(
+                install_quiet,
+                runner.run(seconds=args.seconds, self_contained=args.seconds is not None),
+            )
+        )
     except KeyboardInterrupt:
         runner.stop()
         status = runner.status
@@ -712,6 +719,61 @@ def cmd_live_status(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 # verify
 # ---------------------------------------------------------------------------
+
+
+def cmd_compact(args: argparse.Namespace) -> int:
+    """Drop raw market data, keep every prediction and outcome.
+
+    A multi-day track record is assembled from consecutive bounded runs, and the
+    database has to travel between them. Ticks are what make it large — millions
+    of rows a day — and predictions are what make it evidence. After a segment
+    has resolved everything it started, the ticks have done their job: each
+    resolved outcome already stores the price it was scored at, immutably, so
+    deleting the feed cannot change a single recorded result.
+
+    What it would change is an *unresolved* forecast, which would later be scored
+    VOID with its market data gone. So this refuses to run while any prediction
+    is still open, unless told otherwise.
+    """
+    from forecaster.types import DataSource
+
+    config = load_config()
+    _, market_repo, prediction_repo, _, _ = _open(config)
+
+    rows = prediction_repo.history(limit=1_000_000, prediction_mode="live")
+    open_rows = [r for r in rows if r["outcome"] is None]
+    if open_rows and not args.force:
+        print("")
+        print(f"  {len(open_rows)} predictions are still open. Deleting the market data now")
+        print("  would strand them: they would resolve VOID with no price to score against.")
+        print("  Wait for them to expire, or pass --force if that is genuinely what you want.")
+        print("")
+        return 1
+
+    before = market_repo.counts_for(
+        symbol=config.symbols[0], data_source=DataSource(args.data_source)
+    )
+    market_repo.purge_source(DataSource(args.data_source))
+    if args.vacuum:
+        from sqlalchemy import text
+
+        # Outside a transaction: SQLite refuses to VACUUM inside one.
+        with market_repo.db.engine.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        ) as conn:
+            conn.execute(text("VACUUM"))
+
+    after = prediction_repo.count()
+    print("")
+    print(
+        f"  dropped {args.data_source} market data ({before.get('trades', 0):,} trades for "
+        f"{config.symbols[0]} alone)"
+    )
+    print(f"  kept {after:,} predictions and their outcomes; the hash chain is untouched")
+    if open_rows:
+        print(f"  WARNING: {len(open_rows)} open predictions were stranded by --force")
+    print("")
+    return 0
 
 
 def cmd_probe_venues(args: argparse.Namespace) -> int:
@@ -968,6 +1030,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--symbols", default=None)
     p.add_argument("--json", action="store_true")
     p.set_defaults(func=cmd_live_status)
+
+    p = sub.add_parser("compact", help="drop raw market data, keep every prediction and outcome")
+    p.add_argument("--data-source", default="live", choices=("live", "replay", "simulated"))
+    p.add_argument("--vacuum", action="store_true", help="reclaim the space afterwards")
+    p.add_argument("--force", action="store_true", help="compact even with predictions still open")
+    p.set_defaults(func=cmd_compact)
 
     p = sub.add_parser(
         "probe-venues", help="which exchanges can this machine reach, and where does it fail"
