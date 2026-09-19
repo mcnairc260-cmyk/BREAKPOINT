@@ -1,0 +1,33 @@
+{
+  "trade": {
+    "channel": "trade",
+    "type": "update",
+    "data": [
+      {
+        "symbol": "BTC/USD",
+        "side": "buy",
+        "price": 79434.27,
+        "qty": 0.01374,
+        "ord_type": "market",
+        "trade_id": 84927315,
+        "timestamp": "2026-09-09T06:30:00.123456Z"
+      }
+    ]
+  },
+  "ticker": {
+    "channel": "ticker",
+    "type": "update",
+    "data": [
+      {
+        "symbol": "BTC/USD",
+        "bid": 79433.92,
+        "bid_qty": 0.3124,
+        "ask": 79434.55,
+        "ask_qty": 0.118,
+        "last": 79434.27,
+        "volume": 9421.31,
+        "change_pct": 1.68
+      }
+    ]
+  }
+}

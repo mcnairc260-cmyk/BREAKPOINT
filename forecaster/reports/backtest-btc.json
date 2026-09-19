@@ -1,0 +1,606 @@
+{
+  "n_forecasts": 37760,
+  "n_refused": 0,
+  "n_unresolved": 0,
+  "metrics": {
+    "n": 37760,
+    "brier": 0.15264557887118604,
+    "log_loss": 0.4609076173108901,
+    "accuracy": 0.7770391949152542,
+    "auc": 0.8578406157283065,
+    "ece": 0.003454039290551673,
+    "max_calibration_error": 0.007190148305084798,
+    "base_rate": 0.5003442796610169,
+    "mean_predicted": 0.4992614413032636,
+    "brier_skill": 0.0,
+    "reference": "baseline-t",
+    "murphy": {
+      "reliability": 1.5620845598739158e-05,
+      "resolution": 0.0969017105226737,
+      "uncertainty": 0.249999881471515
+    },
+    "calibration": {
+      "ece": 0.003454039290551673,
+      "max_error": 0.007190148305084798,
+      "buckets": [
+        {
+          "low": 0.0,
+          "high": 0.1,
+          "count": 4720,
+          "mean_predicted": 0.02635003055811796,
+          "observed_rate": 0.02478813559322034,
+          "ci_low": 0.02072394680224365,
+          "ci_high": 0.029625243568576574,
+          "consistent": true
+        },
+        {
+          "low": 0.1,
+          "high": 0.2,
+          "count": 4720,
+          "mean_predicted": 0.1630859375,
+          "observed_rate": 0.16165254237288135,
+          "ci_low": 0.1514259693994562,
+          "ci_high": 0.17242942829211752,
+          "consistent": true
+        },
+        {
+          "low": 0.2,
+          "high": 0.30000000000000004,
+          "count": 2360,
+          "mean_predicted": 0.29296875,
+          "observed_rate": 0.2978813559322034,
+          "ci_low": 0.27977060196992554,
+          "ci_high": 0.31664905660618214,
+          "consistent": true
+        },
+        {
+          "low": 0.30000000000000004,
+          "high": 0.4,
+          "count": 7080,
+          "mean_predicted": 0.3671875,
+          "observed_rate": 0.37189265536723165,
+          "ci_low": 0.3607068652322316,
+          "ci_high": 0.38321739191095466,
+          "consistent": true
+        },
+        {
+          "low": 0.5,
+          "high": 0.6000000000000001,
+          "count": 2360,
+          "mean_predicted": 0.58984375,
+          "observed_rate": 0.5872881355932204,
+          "ci_low": 0.5672987216518578,
+          "ci_high": 0.6069938366989217,
+          "consistent": true
+        },
+        {
+          "low": 0.6000000000000001,
+          "high": 0.7000000000000001,
+          "count": 4720,
+          "mean_predicted": 0.64453125,
+          "observed_rate": 0.6459745762711865,
+          "ci_low": 0.6322178922507311,
+          "ci_high": 0.6594938366099489,
+          "consistent": true
+        },
+        {
+          "low": 0.7000000000000001,
+          "high": 0.8,
+          "count": 2360,
+          "mean_predicted": 0.701171875,
+          "observed_rate": 0.6974576271186441,
+          "ci_low": 0.6786157427280922,
+          "ci_high": 0.7156577145120208,
+          "consistent": true
+        },
+        {
+          "low": 0.8,
+          "high": 0.9,
+          "count": 4720,
+          "mean_predicted": 0.83984375,
+          "observed_rate": 0.8470338983050848,
+          "ci_low": 0.8364828590825891,
+          "ci_high": 0.8570204963220461,
+          "consistent": true
+        },
+        {
+          "low": 0.9,
+          "high": 1.0,
+          "count": 4720,
+          "mean_predicted": 0.9775071248679903,
+          "observed_rate": 0.9741525423728814,
+          "ci_low": 0.9692254176820871,
+          "ci_high": 0.9783084708377989,
+          "consistent": true
+        }
+      ]
+    },
+    "probability_buckets": [
+      {
+        "low": 0.5,
+        "high": 0.55,
+        "n": 0,
+        "predicted": null,
+        "observed": null,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "low": 0.55,
+        "high": 0.6,
+        "n": 2360,
+        "predicted": 0.58984375,
+        "observed": 0.5872881355932204,
+        "ci_low": 0.5672987216518578,
+        "ci_high": 0.6069938366989217
+      },
+      {
+        "low": 0.6,
+        "high": 0.65,
+        "n": 7080,
+        "predicted": 0.60546875,
+        "observed": 0.6036723163841808,
+        "ci_low": 0.5922252800170301,
+        "ci_high": 0.6150069087998402
+      },
+      {
+        "low": 0.65,
+        "high": 0.7,
+        "n": 4720,
+        "predicted": 0.685546875,
+        "observed": 0.6826271186440678,
+        "ci_low": 0.6692042800524091,
+        "ci_high": 0.6957529191898347
+      },
+      {
+        "low": 0.7,
+        "high": 0.75,
+        "n": 4720,
+        "predicted": 0.7041015625,
+        "observed": 0.6997881355932203,
+        "ci_low": 0.6865537469453945,
+        "ci_high": 0.7126975742674082
+      },
+      {
+        "low": 0.75,
+        "high": 0.8,
+        "n": 0,
+        "predicted": null,
+        "observed": null,
+        "ci_low": null,
+        "ci_high": null
+      },
+      {
+        "low": 0.8,
+        "high": 1.01,
+        "n": 18880,
+        "predicted": 0.9069787267024679,
+        "observed": 0.9086864406779661,
+        "ci_low": 0.9044939377337231,
+        "ci_high": 0.9127126628554283
+      }
+    ],
+    "vs_baseline": {
+      "point": 0.0,
+      "ci_low": 0.0,
+      "ci_high": 0.0,
+      "standard_error": 0.0,
+      "n_effective": 37760,
+      "block_length": 30,
+      "n_resamples": 2000,
+      "excludes_zero": false,
+      "description": "+0.00000 (95% CI +0.00000 to +0.00000, n=37760, block=30)"
+    }
+  },
+  "by_horizon": {
+    "300": {
+      "n": 18880,
+      "brier": 0.15657875091643475,
+      "log_loss": 0.4720633101756812,
+      "accuracy": 0.770021186440678,
+      "auc": 0.8521882418507428,
+      "ece": 0.005020799168532908,
+      "max_calibration_error": 0.010341631355932246,
+      "base_rate": 0.5009533898305085,
+      "mean_predicted": 0.49867479810921095,
+      "brier_skill": 0.0,
+      "reference": "baseline-t",
+      "murphy": {
+        "reliability": 3.128836045545501e-05,
+        "resolution": 0.09309648583381214,
+        "uncertainty": 0.24999909104783108
+      },
+      "calibration": {
+        "ece": 0.005020799168532908,
+        "max_error": 0.010341631355932246,
+        "buckets": [
+          {
+            "low": 0.0,
+            "high": 0.1,
+            "count": 2360,
+            "mean_predicted": 0.03130127396115166,
+            "observed_rate": 0.02923728813559322,
+            "ci_low": 0.023167795237861718,
+            "ci_high": 0.03683690220040996,
+            "consistent": true
+          },
+          {
+            "low": 0.1,
+            "high": 0.2,
+            "count": 2360,
+            "mean_predicted": 0.171875,
+            "observed_rate": 0.175,
+            "ci_low": 0.16020139457971314,
+            "ci_high": 0.19085495369675343,
+            "consistent": true
+          },
+          {
+            "low": 0.30000000000000004,
+            "high": 0.4,
+            "count": 4720,
+            "mean_predicted": 0.3544921875,
+            "observed_rate": 0.3597457627118644,
+            "ci_low": 0.34617315988481207,
+            "ci_high": 0.3735464852446944,
+            "consistent": true
+          },
+          {
+            "low": 0.5,
+            "high": 0.6000000000000001,
+            "count": 2360,
+            "mean_predicted": 0.58984375,
+            "observed_rate": 0.5872881355932204,
+            "ci_low": 0.5672987216518578,
+            "ci_high": 0.6069938366989217,
+            "consistent": true
+          },
+          {
+            "low": 0.6000000000000001,
+            "high": 0.7000000000000001,
+            "count": 2360,
+            "mean_predicted": 0.681640625,
+            "observed_rate": 0.686864406779661,
+            "ci_low": 0.6678622615119142,
+            "ci_high": 0.7052591862196089,
+            "consistent": true
+          },
+          {
+            "low": 0.8,
+            "high": 0.9,
+            "count": 2360,
+            "mean_predicted": 0.83203125,
+            "observed_rate": 0.8423728813559322,
+            "ci_low": 0.8271161851686424,
+            "ci_high": 0.8565167621489783,
+            "consistent": true
+          },
+          {
+            "low": 0.9,
+            "high": 1.0,
+            "count": 2360,
+            "mean_predicted": 0.9737221109125354,
+            "observed_rate": 0.9673728813559322,
+            "ci_low": 0.9594111843082462,
+            "ci_high": 0.9738154752107335,
+            "consistent": true
+          }
+        ]
+      },
+      "probability_buckets": [
+        {
+          "low": 0.5,
+          "high": 0.55,
+          "n": 0,
+          "predicted": null,
+          "observed": null,
+          "ci_low": null,
+          "ci_high": null
+        },
+        {
+          "low": 0.55,
+          "high": 0.6,
+          "n": 2360,
+          "predicted": 0.58984375,
+          "observed": 0.5872881355932204,
+          "ci_low": 0.5672987216518578,
+          "ci_high": 0.6069938366989217
+        },
+        {
+          "low": 0.6,
+          "high": 0.65,
+          "n": 2360,
+          "predicted": 0.6015625,
+          "observed": 0.6021186440677966,
+          "ci_low": 0.5822202782057534,
+          "ci_high": 0.6216850934570517
+        },
+        {
+          "low": 0.65,
+          "high": 0.7,
+          "n": 4720,
+          "predicted": 0.685546875,
+          "observed": 0.6826271186440678,
+          "ci_low": 0.6692042800524091,
+          "ci_high": 0.6957529191898347
+        },
+        {
+          "low": 0.7,
+          "high": 0.75,
+          "n": 0,
+          "predicted": null,
+          "observed": null,
+          "ci_low": null,
+          "ci_high": null
+        },
+        {
+          "low": 0.75,
+          "high": 0.8,
+          "n": 0,
+          "predicted": null,
+          "observed": null,
+          "ci_low": null,
+          "ci_high": null
+        },
+        {
+          "low": 0.8,
+          "high": 1.01,
+          "n": 9440,
+          "predicted": 0.9006442717378458,
+          "observed": 0.9013771186440678,
+          "ci_low": 0.8951981770916679,
+          "ci_high": 0.9072295129280374
+        }
+      ]
+    },
+    "1200": {
+      "n": 18880,
+      "brier": 0.1487124068259374,
+      "log_loss": 0.44975192444609907,
+      "accuracy": 0.7840572033898305,
+      "auc": 0.8650859871798432,
+      "ece": 0.0032528117218924386,
+      "max_calibration_error": 0.005991790254237295,
+      "base_rate": 0.4997351694915254,
+      "mean_predicted": 0.4998480844973162,
+      "brier_skill": 0.0,
+      "reference": "baseline-t",
+      "murphy": {
+        "reliability": 1.3734569401900524e-05,
+        "resolution": 0.1013012576082663,
+        "uncertainty": 0.24999992986480177
+      },
+      "calibration": {
+        "ece": 0.0032528117218924386,
+        "max_error": 0.005991790254237295,
+        "buckets": [
+          {
+            "low": 0.0,
+            "high": 0.1,
+            "count": 2360,
+            "mean_predicted": 0.021398787155084257,
+            "observed_rate": 0.020338983050847456,
+            "ci_low": 0.015374874038319384,
+            "ci_high": 0.0268621354127369,
+            "consistent": true
+          },
+          {
+            "low": 0.1,
+            "high": 0.2,
+            "count": 2360,
+            "mean_predicted": 0.154296875,
+            "observed_rate": 0.1483050847457627,
+            "ci_low": 0.13453786114006067,
+            "ci_high": 0.16321542317475973,
+            "consistent": true
+          },
+          {
+            "low": 0.2,
+            "high": 0.30000000000000004,
+            "count": 2360,
+            "mean_predicted": 0.29296875,
+            "observed_rate": 0.2978813559322034,
+            "ci_low": 0.27977060196992554,
+            "ci_high": 0.31664905660618214,
+            "consistent": true
+          },
+          {
+            "low": 0.30000000000000004,
+            "high": 0.4,
+            "count": 2360,
+            "mean_predicted": 0.392578125,
+            "observed_rate": 0.3961864406779661,
+            "ci_low": 0.3766371009273077,
+            "ci_high": 0.41607320588851293,
+            "consistent": true
+          },
+          {
+            "low": 0.6000000000000001,
+            "high": 0.7000000000000001,
+            "count": 2360,
+            "mean_predicted": 0.607421875,
+            "observed_rate": 0.6050847457627119,
+            "ci_low": 0.5852068431157706,
+            "ci_high": 0.6246210912094396,
+            "consistent": true
+          },
+          {
+            "low": 0.7000000000000001,
+            "high": 0.8,
+            "count": 2360,
+            "mean_predicted": 0.701171875,
+            "observed_rate": 0.6974576271186441,
+            "ci_low": 0.6786157427280922,
+            "ci_high": 0.7156577145120208,
+            "consistent": true
+          },
+          {
+            "low": 0.8,
+            "high": 0.9,
+            "count": 2360,
+            "mean_predicted": 0.84765625,
+            "observed_rate": 0.8516949152542372,
+            "ci_low": 0.8367845768252402,
+            "ci_high": 0.8654621388599393,
+            "consistent": true
+          },
+          {
+            "low": 0.9,
+            "high": 1.0,
+            "count": 2360,
+            "mean_predicted": 0.9812921388234452,
+            "observed_rate": 0.9809322033898306,
+            "ci_low": 0.9745821279310445,
+            "ci_high": 0.9857191037589301,
+            "consistent": true
+          }
+        ]
+      },
+      "probability_buckets": [
+        {
+          "low": 0.5,
+          "high": 0.55,
+          "n": 0,
+          "predicted": null,
+          "observed": null,
+          "ci_low": null,
+          "ci_high": null
+        },
+        {
+          "low": 0.55,
+          "high": 0.6,
+          "n": 0,
+          "predicted": null,
+          "observed": null,
+          "ci_low": null,
+          "ci_high": null
+        },
+        {
+          "low": 0.6,
+          "high": 0.65,
+          "n": 4720,
+          "predicted": 0.607421875,
+          "observed": 0.6044491525423729,
+          "ci_low": 0.5904198851838928,
+          "ci_high": 0.6183085361924717
+        },
+        {
+          "low": 0.65,
+          "high": 0.7,
+          "n": 0,
+          "predicted": null,
+          "observed": null,
+          "ci_low": null,
+          "ci_high": null
+        },
+        {
+          "low": 0.7,
+          "high": 0.75,
+          "n": 4720,
+          "predicted": 0.7041015625,
+          "observed": 0.6997881355932203,
+          "ci_low": 0.6865537469453945,
+          "ci_high": 0.7126975742674082
+        },
+        {
+          "low": 0.75,
+          "high": 0.8,
+          "n": 0,
+          "predicted": null,
+          "observed": null,
+          "ci_low": null,
+          "ci_high": null
+        },
+        {
+          "low": 0.8,
+          "high": 1.01,
+          "n": 9440,
+          "predicted": 0.9133131816670902,
+          "observed": 0.9159957627118644,
+          "ci_low": 0.9102292549099107,
+          "ci_high": 0.9214238299957065
+        }
+      ]
+    }
+  },
+  "by_distance": [
+    {
+      "low": 0.0,
+      "high": 0.5,
+      "n": 14370,
+      "brier": 0.23221869445460988,
+      "baseline_brier": 0.23221869445460988,
+      "mean_predicted": 0.4947515711986778,
+      "observed_rate": 0.4936673625608907,
+      "accuracy": 0.6275574112734864
+    },
+    {
+      "low": 0.5,
+      "high": 1.0,
+      "n": 9422,
+      "brier": 0.17074203734133708,
+      "baseline_brier": 0.17074203734133708,
+      "mean_predicted": 0.49160417440564635,
+      "observed_rate": 0.4972405009552112,
+      "accuracy": 0.7731904054340905
+    },
+    {
+      "low": 1.0,
+      "high": 2.0,
+      "n": 9149,
+      "brier": 0.07715592678246215,
+      "baseline_brier": 0.07715592678246215,
+      "mean_predicted": 0.4961611541436101,
+      "observed_rate": 0.49655700076511095,
+      "accuracy": 0.9109192261449339
+    },
+    {
+      "low": 2.0,
+      "high": 3.0,
+      "n": 4819,
+      "brier": 0.023300138804817825,
+      "baseline_brier": 0.023300138804817825,
+      "mean_predicted": 0.5335669257058191,
+      "observed_rate": 0.533513177007678,
+      "accuracy": 0.97613612782735
+    },
+    {
+      "low": 3.0,
+      "high": 99.0,
+      "n": 0
+    }
+  ],
+  "by_volatility": [
+    {
+      "regime": "low",
+      "n": 12592,
+      "brier": 0.16158019471341137,
+      "baseline_brier": 0.16158019471341137,
+      "ece": 0.00943705010018091,
+      "mean_sigma_pct": 0.17367077913660628
+    },
+    {
+      "regime": "medium",
+      "n": 12584,
+      "brier": 0.1480572617367142,
+      "baseline_brier": 0.1480572617367142,
+      "ece": 0.010881110176939662,
+      "mean_sigma_pct": 0.2744278886156505
+    },
+    {
+      "regime": "high",
+      "n": 12584,
+      "brier": 0.14829360017879037,
+      "baseline_brier": 0.14829360017879037,
+      "ece": 0.003988127568417738,
+      "mean_sigma_pct": 0.4094243390914103
+    }
+  ],
+  "sample_size": {
+    "n_rows": 37760,
+    "n_timestamps": 2360,
+    "n_non_overlapping": 236,
+    "n_days": 3.276,
+    "horizon_s": 1200
+  },
+  "warnings": []
+}

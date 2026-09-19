@@ -1,0 +1,105 @@
+@import 'tailwindcss';
+
+/**
+ * Every colour in this application comes from a variable defined here.
+ * Nothing downstream hard-codes a hex.
+ *
+ * The palette is deliberately restrained. This product tells people how likely
+ * something is, and most of the time the honest answer is "close to a coin
+ * flip". Saturated greens and reds would make a 52% look like a signal, so the
+ * two directions are separated by a cool and a warm tone at similar weight —
+ * distinguishable at a glance, neither shouting.
+ */
+@theme {
+  --color-void: #08090c;
+  --color-surface: #101218;
+  --color-surface-2: #161922;
+  --color-line: #232733;
+  --color-line-bright: #333949;
+  --color-ink: #e9ebf1;
+  --color-muted: #878da0;
+  --color-faint: #5b6072;
+
+  --color-above: #3ecfa4;
+  --color-above-dim: #1b4d40;
+  --color-below: #ef8a4c;
+  --color-below-dim: #563423;
+  --color-accent: #7d97ff;
+  --color-warn: #f0c14b;
+  --color-danger: #f26d6d;
+
+  --font-display: 'Inter Tight', 'SF Pro Display', system-ui, sans-serif;
+  --font-mono: 'SF Mono', 'JetBrains Mono', ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  background: var(--color-void);
+  color: var(--color-ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-display);
+  /* A very faint ceiling glow. Enough to stop a full-black page feeling flat,
+     not enough to compete with the numbers. */
+  background-image: radial-gradient(
+    ellipse 80% 50% at 50% -10%,
+    rgb(125 151 255 / 7%),
+    transparent 70%
+  );
+  background-attachment: fixed;
+  min-height: 100dvh;
+}
+
+/* The number the whole product exists to show. Tabular figures so it does not
+   jitter as digits change during a live update. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Respect a reader who has asked for less movement. The countdown still counts;
+   it just stops animating. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.live-dot {
+  animation: pulse-dot 2.4s ease-in-out infinite;
+}

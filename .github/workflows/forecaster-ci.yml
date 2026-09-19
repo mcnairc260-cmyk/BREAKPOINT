@@ -1,0 +1,245 @@
+# CI for the crypto probability forecaster.
+#
+# The point of this job is not that the code compiles. It is that the honesty
+# guarantees still hold: that no feature can see the future, that raising a
+# target can never raise the probability of clearing it, that the prediction log
+# cannot be edited, and that a learned model cannot find skill in a market where
+# none exists.
+#
+# The suite runs with sockets disabled, except for the conformance tests, which
+# may reach 127.0.0.1 and nothing else. That is a stronger guarantee than turning
+# the block off: a test asserting that the adapter connected cannot have connected
+# to a real exchange, because a real exchange is still unreachable.
+name: Forecaster
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'forecaster/**'
+      - '.github/workflows/forecaster-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'forecaster/**'
+      - '.github/workflows/forecaster-ci.yml'
+
+concurrency:
+  group: forecaster-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    name: Engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: forecaster/engine
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: |
+          set -euo pipefail
+          ruff check src tests
+
+      - name: Format
+        run: |
+          set -euo pipefail
+          ruff format --check src tests
+
+      # No `.fit(` anywhere in the feature layer. Fitting a scaler, a residual
+      # shape or a seasonal factor on the full dataset before splitting is the
+      # most common real leak in practice, and it is invisible in the results
+      # because it simply makes the model look better.
+      - name: No global preprocessing in the feature layer
+        run: |
+          set -euo pipefail
+          if grep -rn '\.fit(' src/forecaster/features/; then
+            echo "FAIL: the feature layer must not fit anything — that belongs inside a fold"
+            exit 1
+          fi
+          echo "ok: no fitting in the feature layer"
+
+      - name: Typecheck
+        run: |
+          set -euo pipefail
+          mypy src/forecaster
+
+      - name: Tests
+        run: |
+          set -euo pipefail
+          python -m pytest -q
+
+      - name: Offline verification suite
+        run: |
+          set -euo pipefail
+          forecaster verify --seeds 4 --output ../../verify-report.json
+
+      # The live data path, against a server speaking the venue's wire protocol
+      # on localhost. Without this, a change that breaks the WebSocket client,
+      # the reconnect loop or the staleness ladder passes CI and fails the day
+      # someone finally runs it against an exchange — which no runner here can.
+      - name: Live path conformance
+        run: |
+          set -euo pipefail
+          forecaster conformance --seconds 60 --output ../../conformance-report.json
+
+      # The live-proof procedure itself, at short horizons so CI stays quick.
+      # What is being checked is that the procedure runs end to end and reaches a
+      # verdict — and that a flawless run against something that is not a venue
+      # still exits non-zero. A `live-proof` that could exit 0 without an
+      # exchange would be worse than no command at all.
+      - name: Live proof reaches NOT LIVE without an exchange
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import asyncio, os, subprocess, sys
+          from forecaster.marketdata.conformance import CoinbaseConformanceVenue
+
+          async def main() -> int:
+              venue = CoinbaseConformanceVenue(rate_hz=120.0, history_s=2700.0)
+              await venue.start()
+              loop = asyncio.get_running_loop()
+              def run():
+                  return subprocess.run(
+                      ["forecaster", "live-proof", "--horizons", "20",
+                       "--minutes", "4", "--warmup-s", "15", "--interval", "8",
+                       "--ws-url", venue.ws_url, "--rest-url", venue.rest_url,
+                       "--json", "../../live-proof-ci.json"],
+                      capture_output=True, text=True, timeout=420)
+              result = await loop.run_in_executor(None, run)
+              await venue.stop()
+              print(result.stdout)
+              assert result.returncode != 0, "live-proof exited 0 without an exchange"
+              assert "VERDICT: NOT LIVE" in result.stdout, "expected a NOT LIVE verdict"
+              for stage in (
+                  "forecasts generated on live data",
+                  "forecasts expired and were scored",
+                  "predictions survive a restart",
+                  "no outcome recorded twice after restart",
+              ):
+                  assert f"[PASS] {stage}" in result.stdout, f"stage did not pass: {stage}"
+              print("ok: every stage passed and the verdict is still NOT LIVE")
+              return 0
+
+          sys.exit(asyncio.run(main()))
+          PY
+
+      # A venue with an adapter whose hostnames are missing from the LIVE
+      # allowlist would connect to the real exchange and label the data
+      # SIMULATED — silently, into an append-only log, with no error anywhere.
+      # A week of real market data would be unrecoverable. Asserted in the suite
+      # and again here, because it is cheap and the failure is permanent.
+      - name: Every adapter-backed venue is on the LIVE allowlist
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from urllib.parse import urlsplit
+
+          from forecaster.marketdata.venues.catalog import VENUES
+          from forecaster.marketdata.venues.endpoints import VENUE_HOSTS
+
+          for spec in VENUES:
+              if not spec.adapter:
+                  continue
+              family = "binance" if spec.name.startswith("binance") else spec.name
+              assert family in VENUE_HOSTS, f"{spec.name}: no allowlist entry"
+              for url in (spec.rest_url, spec.ws_url):
+                  host = urlsplit(url).hostname
+                  assert host in VENUE_HOSTS[family], f"{host} missing from VENUE_HOSTS"
+              print(f"ok: {spec.name}")
+          PY
+
+      # The one guarantee that keeps the track record meaningful: a provider
+      # pointed anywhere but a venue's own host must not be able to write rows
+      # labelled LIVE. Asserted in tests too; asserted here because it is the
+      # single failure that cannot be undone once it has happened.
+      - name: Provenance guard
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from forecaster.marketdata.venues.coinbase import CoinbaseProvider
+          from forecaster.types import DataSource
+
+          assert CoinbaseProvider().data_source is DataSource.LIVE
+          for url in (
+              "ws://127.0.0.1:9001",
+              "wss://ws-feed.exchange.coinbase.com.attacker.example",
+              "wss://evil-coinbase.com",
+          ):
+              got = CoinbaseProvider(ws_url=url).data_source
+              assert got is DataSource.SIMULATED, f"{url} was labelled {got}"
+          print("ok: only real venue hosts produce LIVE data")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: verify-report
+          path: |
+            verify-report.json
+            conformance-report.json
+            live-proof-ci.json
+          retention-days: 14
+
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: forecaster/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: forecaster/web/package-lock.json
+
+      # `ci`, not `install`: the lockfile is the point.
+      - name: Install
+        run: |
+          set -euo pipefail
+          npm ci
+
+      - name: Typecheck
+        run: |
+          set -euo pipefail
+          npm run typecheck
+
+      - name: Lint
+        run: |
+          set -euo pipefail
+          npm run lint
+
+      - name: Test
+        run: |
+          set -euo pipefail
+          npm run test
+
+      - name: Build
+        run: |
+          set -euo pipefail
+          npm run build
