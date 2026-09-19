@@ -1,27 +1,27 @@
 {
-  "generated": "2026-09-18T18:47:58.557100Z",
+  "generated": "2026-09-19T00:09:24.928544Z",
   "data_source": "live",
   "runner": {
     "running": false,
     "reason": "the runner recorded a clean shutdown",
-    "updated": "2026-09-18T18:47:47.951945Z",
-    "uptime_s": 19200.042959384,
+    "updated": "2026-09-19T00:09:15.601276Z",
+    "uptime_s": 19200.112428244,
     "venue": "coinbase",
     "data_source": "live",
-    "reconnects": 0,
+    "reconnects": 1,
     "malformed_messages": 0,
     "stale_refusals": 0,
     "recent_errors": [
-      "2026-09-18T13:37:47.953995Z sample BTC-USD/300s: only 601s of history; 1800s required",
-      "2026-09-18T13:37:47.957661Z sample ETH-USD/300s: only 603s of history; 1800s required",
-      "2026-09-18T13:42:47.965768Z sample ETH-USD/300s: only 903s of history; 1800s required",
-      "2026-09-18T13:42:47.960637Z sample BTC-USD/300s: only 901s of history; 1800s required",
-      "2026-09-18T13:47:47.953506Z sample ETH-USD/1200s: only 1203s of history; 1800s required",
-      "2026-09-18T13:47:47.948351Z sample BTC-USD/1200s: only 1201s of history; 1800s required",
-      "2026-09-18T13:47:47.972585Z sample ETH-USD/300s: only 1203s of history; 1800s required",
-      "2026-09-18T13:47:47.977680Z sample BTC-USD/300s: only 1201s of history; 1800s required",
-      "2026-09-18T13:52:47.990710Z sample ETH-USD/300s: only 1503s of history; 1800s required",
-      "2026-09-18T13:52:47.995846Z sample BTC-USD/300s: only 1501s of history; 1800s required"
+      "2026-09-18T18:59:15.543500Z sample BTC-USD/300s: only 601s of history; 1800s required",
+      "2026-09-18T18:59:15.547109Z sample ETH-USD/300s: only 601s of history; 1800s required",
+      "2026-09-18T19:04:15.556765Z sample ETH-USD/300s: only 901s of history; 1800s required",
+      "2026-09-18T19:04:15.551602Z sample BTC-USD/300s: only 901s of history; 1800s required",
+      "2026-09-18T19:09:15.539159Z sample BTC-USD/1200s: only 1201s of history; 1800s required",
+      "2026-09-18T19:09:15.544262Z sample ETH-USD/1200s: only 1201s of history; 1800s required",
+      "2026-09-18T19:09:15.562055Z sample ETH-USD/300s: only 1201s of history; 1800s required",
+      "2026-09-18T19:09:15.565842Z sample BTC-USD/300s: only 1201s of history; 1800s required",
+      "2026-09-18T19:14:15.571457Z sample ETH-USD/300s: only 1501s of history; 1800s required",
+      "2026-09-18T19:14:15.576602Z sample BTC-USD/300s: only 1501s of history; 1800s required"
     ]
   },
   "feeds": [
@@ -57,7 +57,7 @@
       },
       "forecasts": 402,
       "refusals": 6,
-      "last_refusal": "InsufficientData: only 1503s of history; 1800s required"
+      "last_refusal": "InsufficientData: only 1501s of history; 1800s required"
     }
   ],
   "learner_threshold": {
@@ -69,54 +69,54 @@
     {
       "symbol": "BTC-USD",
       "horizon_s": 300,
-      "resolved_rows": 3882,
-      "distinct_timestamps": 647,
-      "independent_observations": 647,
-      "days_represented": 2.6794175520381134,
+      "resolved_rows": 4206,
+      "distinct_timestamps": 701,
+      "independent_observations": 701,
+      "days_represented": 2.9025402933184026,
       "threshold": 750,
-      "fraction_of_threshold": 0.8626666666666667,
-      "observations_remaining": 103,
-      "rate_per_day_so_far": 241.47038952844656,
-      "implied_days_at_this_rate": 0.42655333517762856
+      "fraction_of_threshold": 0.9346666666666666,
+      "observations_remaining": 49,
+      "rate_per_day_so_far": 241.51258179384791,
+      "implied_days_at_this_rate": 0.20288798056005952
     },
     {
       "symbol": "BTC-USD",
       "horizon_s": 1200,
-      "resolved_rows": 936,
-      "distinct_timestamps": 156,
-      "independent_observations": 156,
-      "days_represented": 2.6618128409432873,
+      "resolved_rows": 1014,
+      "distinct_timestamps": 169,
+      "independent_observations": 169,
+      "days_represented": 2.8849680742761343,
       "threshold": 750,
-      "fraction_of_threshold": 0.208,
-      "observations_remaining": 594,
-      "rate_per_day_so_far": 58.606674969949076,
-      "implied_days_at_this_rate": 10.135364278976363
+      "fraction_of_threshold": 0.22533333333333333,
+      "observations_remaining": 581,
+      "rate_per_day_so_far": 58.57950439968168,
+      "implied_days_at_this_rate": 9.918144681387183
     },
     {
       "symbol": "ETH-USD",
       "horizon_s": 300,
-      "resolved_rows": 3888,
-      "distinct_timestamps": 648,
-      "independent_observations": 648,
-      "days_represented": 2.6793009017459952,
+      "resolved_rows": 4212,
+      "distinct_timestamps": 702,
+      "independent_observations": 702,
+      "days_represented": 2.902540173231285,
       "threshold": 750,
-      "fraction_of_threshold": 0.864,
-      "observations_remaining": 102,
-      "rate_per_day_so_far": 241.8541342548438,
-      "implied_days_at_this_rate": 0.4217418086081659
+      "fraction_of_threshold": 0.936,
+      "observations_remaining": 48,
+      "rate_per_day_so_far": 241.85711759451402,
+      "implied_days_at_this_rate": 0.1984642853491477
     },
     {
       "symbol": "ETH-USD",
       "horizon_s": 1200,
-      "resolved_rows": 936,
-      "distinct_timestamps": 156,
-      "independent_observations": 156,
-      "days_represented": 2.661813032574757,
+      "resolved_rows": 1014,
+      "distinct_timestamps": 169,
+      "independent_observations": 169,
+      "days_represented": 2.8849679005877777,
       "threshold": 750,
-      "fraction_of_threshold": 0.208,
-      "observations_remaining": 594,
-      "rate_per_day_so_far": 58.60667075068832,
-      "implied_days_at_this_rate": 10.135365008650037
+      "fraction_of_threshold": 0.22533333333333333,
+      "observations_remaining": 581,
+      "rate_per_day_so_far": 58.57950792643768,
+      "implied_days_at_this_rate": 9.918144084269224
     }
   ]
 }
