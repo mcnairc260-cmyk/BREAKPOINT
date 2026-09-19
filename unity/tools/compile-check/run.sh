@@ -29,6 +29,16 @@ mcs -langversion:7.2 -target:library \
   "$ROOT/Assets/BREAKPOINT/Runtime/Input/"*.cs \
   "$ROOT/Assets/BREAKPOINT/Runtime/UI/"*.cs
 
+echo "== shape-checking the editor tooling against the API stubs =="
+# The setup script only ever runs inside a real editor, so it would otherwise
+# be the one file in the project no compiler had ever seen.
+mcs -langversion:7.2 -target:library \
+  -r:"$OUT/Breakpoint.Core.dll" \
+  -out:"$OUT/Breakpoint.Editor.dll" \
+  "$ROOT/tools/compile-check/UnityApiStub.cs" \
+  "$ROOT/tools/compile-check/UnityEditorStub.cs" \
+  "$ROOT/Assets/BREAKPOINT/Editor/"*.cs
+
 echo "== shape-checking the play-mode tests =="
 # These can never run here — they need a player loop — but compiling them stops
 # a syntax error sitting undiscovered until someone opens the editor.

@@ -156,6 +156,7 @@ namespace UnityEngine
     public class ScriptableObject : Object
     {
         public static T CreateInstance<T>() where T : ScriptableObject { return null; }
+        public static ScriptableObject CreateInstance(System.Type type) { return null; }
     }
 
     public enum PrimitiveType { Sphere, Cube, Cylinder, Capsule, Plane, Quad }
@@ -350,7 +351,11 @@ namespace UnityEngine
         public static T GetBuiltinResource<T>(string path) where T : Object { return null; }
     }
 
-    public static class Application { public static bool isPlaying { get { return true; } } }
+    public static class Application
+    {
+        public static bool isPlaying { get { return true; } }
+        public static string unityVersion { get { return "0"; } }
+    }
 
     public static class Time { public static float deltaTime { get { return 0f; } } }
 
