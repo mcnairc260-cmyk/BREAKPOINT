@@ -723,6 +723,32 @@ drivers, one concurrency group, at most one pending run — the duplication cost
 nothing and removes the single point of failure. Segments 1 to 4 were all
 dispatched by hand while this was being worked out.
 
+**Measured over 112 hours, the pair is sufficient, and the slot statistics
+badly understate it.** 37 cron slots expected, 21 delivered (57%), median delay
+108 minutes, maximum 157. That reads like a broken scheduler. It is not the
+number that matters.
+
+What matters is whether a segment ever ended with nothing queued behind it, and
+the answer is almost never: when a run is pending, the handover takes about
+**three seconds**. Every one of the 20 collection gaps is structural rather than
+scheduling — 22 minutes of sampling cutoff, 30 minutes of warm-up, then up to
+one sampling interval — giving a 52-57 minute floor that no scheduler could
+remove. Six gaps exceeded that floor, by **95 minutes in total across the whole
+run**: 1.4% of elapsed time, all of it in the first day before the cadence
+settled.
+
+The Routine dispatched 9 times and produced exactly one segment; the other 8
+were cancelled by a scheduled run arriving second. That is a poor hit rate and
+the right outcome — it is insurance, and insurance that never pays out is
+insurance that was not needed, not insurance that was wrong to hold. Its more
+valuable job is the one nothing else does: watching for a failed run, a
+non-LIVE feed, a barren segment, or the database outgrowing the repository.
+
+The structural 16.5% is the real inefficiency — 94 of 113 hours sampled — and
+it is the price of segmenting a collection into six-hour jobs. Reducing it
+would mean shortening the warm-up, which is a forecaster change, not a
+scheduling one, and is not worth making to buy back an hour a day.
+
 ### What will come out of it
 
 `forecaster live-report` will fill in Brier, log loss, calibration error and
@@ -770,6 +796,45 @@ a given distance, can the model tell a likely instant from an unlikely one?
 | BTC 20m | −0.0330 | [−0.209, −0.010] | 39 |
 | ETH 5m | −0.0005 | [−0.024, −0.001] | 162 |
 | ETH 20m | −0.0039 | [−0.114, −0.004] | 39 |
+
+**Four days later, at and past the threshold, the picture is unchanged and the
+intervals are much tighter.** 20 September, 16,854 forecasts over 112 hours:
+
+| cell | independent | pooled BSS | **stratified BSS** | 95% CI | ECE |
+|---|---|---|---|---|---|
+| BTC 5m | 1,131 | +0.2666 | **−0.0126** | [−0.019, −0.009] | 0.0396 |
+| BTC 20m | 273 | +0.2743 | **−0.0091** | [−0.026, −0.004] | 0.0360 |
+| ETH 5m | 1,132 | +0.3702 | **−0.0003** | [−0.004, −0.000] | 0.0054 |
+| ETH 20m | 273 | +0.3955 | **−0.0040** | [−0.022, −0.001] | 0.0174 |
+
+Seven times the evidence moved the stratified figure by less than a hundredth.
+That is what a zero-drift baseline looks like when it is behaving exactly as
+designed: no discrimination at a fixed distance, and none claimed.
+
+**Calibration is the part that is genuinely good, and it separates the two
+symbols.** Observed rate against forecast, per rung, at 1,132 independent
+instants for ETH and 1,131 for BTC:
+
+| z | ETH forecast | ETH observed | BTC forecast | BTC observed |
+|---|---|---|---|---|
+| +2.50 | 0.012 | 0.011 | 0.012 | **0.029** |
+| +1.00 | 0.115 | 0.117 | 0.115 | **0.194** |
+| +0.25 | 0.371 | 0.374 | 0.371 | 0.416 |
+| 0.00 | 0.500 | 0.504 | 0.500 | 0.508 |
+| −0.25 | 0.629 | 0.641 | 0.629 | 0.605 |
+| −1.00 | 0.885 | 0.896 | 0.885 | **0.820** |
+
+ETH tracks its own forecasts to within about a percentage point at every rung.
+BTC does not: it is crossed far more often than predicted at +2.5σ and +1.0σ,
+and less often than predicted at −1.0σ. **BTC's return distribution has fatter
+tails than the model's Student-t assumption allows**, over a window in which BTC
+moved from \$75.2k to \$81.8k.
+
+That is a real, measured finding about the model, and it is deliberately left
+alone. Widening the tails because four days of live data asked for it would
+convert the only out-of-sample evidence in existence into in-sample evidence.
+It is recorded here as the first thing a future model change should have to
+beat.
 
 Essentially zero, fractionally below it. Two things about that number, and both
 matter.
