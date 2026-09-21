@@ -55,6 +55,13 @@ ignore = ["B008", "RUF002"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# `tests` has no __init__.py, so pytest puts tests/ on sys.path rather than the
+# root. The leakage canary imports `tests.conftest`, so under the `pytest`
+# console script it fails to import while `python -m pytest` -- which CI runs,
+# and which adds the working directory -- passes. The canary is the check the
+# whole design exists to pass; it must not look broken to whoever runs it the
+# other way, because the tempting repair for a broken canary is to delete it.
+pythonpath = ["."]
 # Network access is blocked for the whole suite. Unix sockets stay open because
 # asyncio builds its event loop from a socketpair; blocking those would fail
 # every async test for a reason unrelated to the network.

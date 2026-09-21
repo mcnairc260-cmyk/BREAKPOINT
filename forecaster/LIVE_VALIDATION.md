@@ -357,7 +357,8 @@ the behaviour changes.
 
 The first three were found offline. The last two took real market data and could
 not have been found any other way — which is the strongest argument in this
-document for why the live proof had to happen at all.
+document for why the live proof had to happen at all. A sixth, found only after
+days of collection, is in §11a: it needed not just real data but a real outage.
 
 ### The append-only log forked under concurrency
 
@@ -854,6 +855,67 @@ beat the *pooled* figure, it has learned the ladder.
 So the position after day one: **calibration is good, discrimination is unproven
 and by design absent.** The pooled score is the one that will be quoted at you,
 and it is the one that means least.
+
+---
+
+## 11a. The sixth defect: a socket that reconnects and then says nothing
+
+Segment 36, on 21 September, collected **18 of its expected 54** five-minute
+sampling instants and reported success. Nothing else looked wrong. The workflow
+was green, the segment committed, the hash chain verified, and the per-cell
+counts rose. Only the size of the rise gave it away: +16 and +3 where every
+healthy segment adds +54 and +13.
+
+What happened, from the run's own log and the committed database:
+
+| Time (UTC) | Event |
+|---|---|
+| 11:19:04 | collection starts, 320 minutes requested |
+| 11:49:05 | first forecast, after the normal 30-minute feature warm-up |
+| 13:04:08 | last forecast that resolved against a real print |
+| ~13:09 | the websocket drops and reconnects — **1 reconnect**, logged |
+| 13:09:08, 13:14:08 | the last two instants expire with no print inside the staleness bound → **VOID** |
+| 13:14:08 → 16:39:06 | **3 hours 25 minutes of silence.** No ticks, no forecasts, no errors |
+| 16:39:06 | the run ends on its own clock and exits **0** |
+
+Those were the first 36 VOIDs in the whole track record, and they are all in
+this one window: 12 BTC 5m, 12 ETH 5m, 6 BTC 20m, 6 ETH 20m.
+
+**The forecaster was not at fault, and that is the point.** `sample_once`
+refuses to forecast when the service level is STALE or DOWN, so it correctly
+wrote nothing for three and a half hours; the evaluator correctly scored the
+open forecasts VOID rather than resolving them against a stale price. Every
+integrity rule held. The evidence in the database is clean — just three hours
+smaller than it should be.
+
+The defect is **operational**: nothing treated a silent feed as a failure. The
+exit-code guard added earlier fires only on *zero* forecasts, and this run wrote
+264. A partial collection is the more dangerous shape precisely because it
+commits real evidence and every signal downstream reads healthy.
+
+### The repair
+
+A watchdog in the runner's status loop, `FEED_SILENCE_ABORT_S = 600`: if the
+whole feed delivers nothing for ten minutes, the run records why and stops.
+Silence is measured from the last event, or from the start if no event ever
+arrived — a feed that never connects is the same failure as one that stops, and
+must not escape the watchdog for want of a timestamp.
+
+Ending the run is the cheap repair *because the collection is segmented*. The
+run still commits everything it gathered, `collect-live` exits 4, the workflow
+turns red, and the queued run takes over with a new connection. A dead feed
+costs about ten minutes instead of three and a half hours.
+
+Ten minutes cannot fire on a quiet market: BTC and ETH together delivered around
+three trades per second through every healthy segment — segment 36 dropped
+54,021 BTC trades alone at compaction — so ten minutes of true silence is four
+orders of magnitude outside normal.
+
+The threshold was **not** tuned against the observed outage, and nothing in the
+model, the ladder, the horizons or the 750-observation threshold was touched.
+This is a collection-liveness guard, not a modelling change. The live sample
+remains out-of-sample.
+
 
 ---
 

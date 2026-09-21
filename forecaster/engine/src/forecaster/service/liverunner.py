@@ -104,6 +104,21 @@ EVALUATE_INTERVAL_S = 5.0
 #: top of the horizon itself, so the evaluator has time to score it.
 SAMPLING_CUTOFF_MARGIN_S = 120.0
 
+#: How long the whole feed may deliver nothing before the run is abandoned.
+#:
+#: A socket that reconnects and then stays silent is the worst shape of failure
+#: this collector has: `sample_once` correctly refuses to forecast without fresh
+#: ticks, so the run writes nothing further, records no error, and exits 0.
+#: Segment 36 spent 3h25m in that state after a single reconnect, and reported
+#: success.
+#:
+#: Ending the run is the cheap repair, because a segment is one of many: it
+#: commits what it has and the next run opens a new connection, so a dead feed
+#: costs minutes instead of hours. Ten minutes is far outside anything a quiet
+#: market produces -- BTC and ETH together delivered about three trades a second
+#: through every healthy segment -- so this cannot fire on a real lull.
+FEED_SILENCE_ABORT_S = 600.0
+
 STATUS_FILENAME = "live_runner_status.json"
 
 
@@ -150,6 +165,8 @@ class RunnerStatus:
     evaluated: int = 0
     voided: int = 0
     stopped: bool = False
+    abandoned_reason: str | None = None
+    """Set when the run ended itself rather than reaching its own deadline."""
     sampling_deadline_ns: int | None = None
     """When a bounded run stops starting new forecasts. See `LiveRunner.run`."""
     """Set on clean shutdown. Without it a status file written seconds before the
@@ -172,6 +189,7 @@ class RunnerStatus:
             "sampling_interval_s": {str(k): v for k, v in sorted(self.interval_s.items())},
             "target_ladder_z": list(self.ladder_z),
             "stopped": self.stopped,
+            "abandoned_reason": self.abandoned_reason,
             "sampling_stops_at": (
                 iso(self.sampling_deadline_ns) if self.sampling_deadline_ns else None
             ),
@@ -353,11 +371,45 @@ class LiveRunner:
             except Exception as exc:
                 self.status.errors.append(f"{iso(now_ns())} evaluate: {exc}")
 
+    def feed_silence_ns(self, at_ns: int) -> int:
+        """How long the feed has delivered nothing, counting from the start.
+
+        Before the first event there is no `last_event_ns` to measure from, so
+        silence runs from when the collector started. A feed that never connects
+        is the same failure as one that stops, and must not be exempt from the
+        watchdog for want of a timestamp.
+        """
+        since = self.status.last_event_ns or self.status.started_ns
+        return max(0, at_ns - since)
+
+    def abandon_if_feed_is_dead(self, at_ns: int) -> str | None:
+        """Stop the run if the feed has gone silent. Returns the reason, if any.
+
+        Separate from the loop that calls it so a test can drive it directly:
+        the failure it guards against takes hours to appear in real time, and a
+        test that waited for it would never be written.
+        """
+        if self.status.abandoned_reason is not None:
+            return self.status.abandoned_reason
+        silence_s = self.feed_silence_ns(at_ns) / NS_PER_SECOND
+        if silence_s < FEED_SILENCE_ABORT_S:
+            return None
+        reason = (
+            f"the feed delivered nothing for {silence_s / 60:.0f} minutes after "
+            f"{self.status.reconnects} reconnect(s); abandoning the segment so the "
+            "next run can open a new connection"
+        )
+        self.status.abandoned_reason = reason
+        self.status.errors.append(f"{iso(at_ns)} {reason}")
+        self._stop.set()
+        return reason
+
     async def _status_loop(self) -> None:
         while not self._stop.is_set():
             with contextlib.suppress(TimeoutError):
                 await asyncio.wait_for(self._stop.wait(), timeout=STATUS_INTERVAL_S)
             self.refresh_status()
+            self.abandon_if_feed_is_dead(now_ns())
             self.write_status()
             if self._stop.is_set():
                 return

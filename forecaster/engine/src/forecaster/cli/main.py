@@ -590,6 +590,7 @@ def cmd_live_check(args: argparse.Namespace) -> int:
 #: scheduled run cannot report success while having collected nothing.
 EXIT_NOT_LIVE = 2
 EXIT_NO_FORECASTS = 3
+EXIT_FEED_DIED = 4
 
 
 def collection_exit_code(summary: dict[str, Any]) -> tuple[int, str]:
@@ -600,9 +601,9 @@ def collection_exit_code(summary: dict[str, Any]) -> tuple[int, str]:
     no guard at all for a failure whose whole danger is that it looks like
     success.
 
-    Only unambiguous emptiness fails. A run that collected real forecasts but
-    resolved few is a short or quiet run, not a broken one, and the report is
-    the right place to describe it.
+    Only unambiguous emptiness, or a feed the runner itself gave up on, fails. A
+    run that collected real forecasts but resolved few is a short or quiet run,
+    not a broken one, and the report is the right place to describe it.
     """
     written = sum(p["forecasts"] for p in summary["per_symbol"].values())
     source = summary["data_source"]
@@ -610,6 +611,15 @@ def collection_exit_code(summary: dict[str, Any]) -> tuple[int, str]:
         return EXIT_NOT_LIVE, (
             f"FAILED: the feed was {str(source).upper()}, not LIVE. Nothing collected "
             "here is real-market evidence."
+        )
+    abandoned = summary.get("abandoned_reason")
+    if abandoned:
+        # Partial collection is the dangerous case, not the empty one: the
+        # segment commits real evidence and every other signal reads healthy.
+        # Only this makes the run red.
+        return EXIT_FEED_DIED, (
+            f"FAILED: {abandoned}. The {written:,} forecasts already written are "
+            "real evidence and were kept; the rest of the segment was lost."
         )
     if written == 0:
         return EXIT_NO_FORECASTS, (

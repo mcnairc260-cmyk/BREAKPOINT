@@ -13,10 +13,13 @@ run rather than by a suite that would have to wait twenty minutes.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import math
 from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -30,7 +33,12 @@ from forecaster.quality import QualityMonitor
 from forecaster.service.collector import Collector
 from forecaster.service.engine import ForecastEngine
 from forecaster.service.livereport import live_validation_report, monotonicity_violations
-from forecaster.service.liverunner import TARGET_LADDER_Z, LiveRunner, read_status
+from forecaster.service.liverunner import (
+    FEED_SILENCE_ABORT_S,
+    TARGET_LADDER_Z,
+    LiveRunner,
+    read_status,
+)
 from forecaster.store import (
     MarketRepository,
     PredictionRepository,
@@ -618,3 +626,89 @@ def test_segments_stitch_without_disturbing_order_or_the_chain(tmp_path: Path) -
     # No duplicate forecast survived the joins.
     seen = {(r["symbol"], r["horizon_s"], r["as_of_ns"], r["target"]) for r in stored}
     assert len(seen) == len(stored), "stitching produced a duplicate forecast"
+
+
+# --- the feed that reconnects and then says nothing -------------------------
+#
+# Segment 36 collected 18 of its expected 54 sampling instants, then sat on a
+# reconnected but silent socket for 3h25m and exited 0. Every other signal read
+# healthy: the workflow was green, the segment committed, and only the per-cell
+# increment gave it away. These cover the watchdog that ends such a run.
+
+
+def _runner_with_feed_last_heard_at(last_event_ns: int | None, started_ns: int) -> Any:
+    """A runner whose feed health is set directly, without a provider or a clock."""
+    from forecaster.service.liverunner import LiveRunner
+
+    runner = LiveRunner.__new__(LiveRunner)
+    runner._stop = asyncio.Event()
+    runner.status = SimpleNamespace(
+        started_ns=started_ns,
+        last_event_ns=last_event_ns,
+        reconnects=1,
+        abandoned_reason=None,
+        errors=[],
+    )
+    return runner
+
+
+def test_a_feed_silent_past_the_limit_ends_the_run() -> None:
+    start = 1_000 * NS_PER_SECOND
+    runner = _runner_with_feed_last_heard_at(start, start)
+    dead_at = start + int((FEED_SILENCE_ABORT_S + 1) * NS_PER_SECOND)
+
+    reason = runner.abandon_if_feed_is_dead(dead_at)
+
+    assert reason is not None
+    assert runner._stop.is_set(), "a dead feed must stop the run, not just be noted"
+    assert runner.status.abandoned_reason == reason
+    assert runner.status.errors, "the reason belongs in the status file too"
+
+
+def test_a_quiet_feed_inside_the_limit_is_left_alone() -> None:
+    start = 1_000 * NS_PER_SECOND
+    runner = _runner_with_feed_last_heard_at(start, start)
+    quiet_at = start + int((FEED_SILENCE_ABORT_S - 1) * NS_PER_SECOND)
+
+    assert runner.abandon_if_feed_is_dead(quiet_at) is None
+    assert not runner._stop.is_set()
+    assert runner.status.abandoned_reason is None
+
+
+def test_a_feed_that_never_connects_is_measured_from_the_start() -> None:
+    """No first event means no `last_event_ns`. Silence still has to be counted."""
+    start = 1_000 * NS_PER_SECOND
+    runner = _runner_with_feed_last_heard_at(None, start)
+    dead_at = start + int((FEED_SILENCE_ABORT_S + 1) * NS_PER_SECOND)
+
+    assert runner.abandon_if_feed_is_dead(dead_at) is not None
+    assert runner._stop.is_set()
+
+
+def test_an_abandoned_run_exits_non_zero_although_it_collected_real_evidence() -> None:
+    """The partial segment is the dangerous one: it commits and looks healthy."""
+    from forecaster.cli.main import EXIT_FEED_DIED, collection_exit_code
+
+    summary = {
+        "data_source": DataSource.LIVE.value,
+        "abandoned_reason": "the feed delivered nothing for 205 minutes",
+        "per_symbol": {"BTC-USD": {"forecasts": 264}},
+    }
+
+    code, complaint = collection_exit_code(summary)
+
+    assert code == EXIT_FEED_DIED
+    assert "264" in complaint, "the evidence that was kept must be named, not hidden"
+
+
+def test_a_healthy_partial_run_is_still_a_success() -> None:
+    """Without an abandon reason, fewer forecasts is a short run, not a failure."""
+    from forecaster.cli.main import collection_exit_code
+
+    summary = {
+        "data_source": DataSource.LIVE.value,
+        "abandoned_reason": None,
+        "per_symbol": {"BTC-USD": {"forecasts": 12}},
+    }
+
+    assert collection_exit_code(summary)[0] == 0
