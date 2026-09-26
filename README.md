@@ -12,9 +12,15 @@ Part of the **Dragon Phoenix Ascension** ecosystem.
 BREAKPOINT/
 ├── unity/                        the primary implementation  ← build here
 ├── reference/threejs-phase1/     the physics oracle          ← do not delete
+├── proofhound/                   evidence-lineage investigation tool
+├── forecaster/                   short-horizon crypto probability forecaster
 ├── docs/
 └── .github/workflows/
 ```
+
+The first two are BREAKPOINT itself. The last two are separate applications that
+live here as self-contained folders — each with its own manifest, ignore file,
+README and path-filtered CI, touching nothing outside its own directory.
 
 **`unity/`** is BREAKPOINT's future: Unity 6 for rendering, cameras, lighting,
 materials, UI, audio and platform builds, wrapped around a **custom

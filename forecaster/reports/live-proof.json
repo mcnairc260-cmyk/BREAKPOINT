@@ -1,0 +1,533 @@
+{
+  "verdict": "PROVEN",
+  "scope": "Real venue market data, forecast and resolved end to end.",
+  "venue": "coinbase",
+  "transport": "websocket",
+  "endpoint": null,
+  "data_source": "live",
+  "horizons_s": [
+    300,
+    1200
+  ],
+  "started": "2026-09-15T09:04:07.279848Z",
+  "finished": "2026-09-15T10:16:07.597935Z",
+  "duration_s": 4320.318092224,
+  "real_btc_received": true,
+  "real_eth_received": true,
+  "symbols_with_trades": [
+    "BTC-USD",
+    "ETH-USD"
+  ],
+  "symbols_with_quotes": [
+    "BTC-USD",
+    "ETH-USD"
+  ],
+  "forecasts_generated": 132,
+  "forecasts_resolved": 108,
+  "forecasts_void": 0,
+  "by_symbol_horizon": {
+    "BTC-USD|300": {
+      "generated": 54,
+      "resolved": 48
+    },
+    "ETH-USD|300": {
+      "generated": 54,
+      "resolved": 48
+    },
+    "BTC-USD|1200": {
+      "generated": 12,
+      "resolved": 6
+    },
+    "ETH-USD|1200": {
+      "generated": 12,
+      "resolved": 6
+    }
+  },
+  "restart_recovery_ok": true,
+  "duplicate_outcomes": 0,
+  "monotonicity_violations": 0,
+  "reconnects": 0,
+  "stages": [
+    {
+      "stage": "endpoint is a real venue",
+      "ok": true,
+      "detail": "data_source=LIVE",
+      "observed": "live"
+    },
+    {
+      "stage": "live prices verified",
+      "ok": true,
+      "detail": "32 checks passed, 0 failed, 1,581 events",
+      "observed": {
+        "passed": 32,
+        "failed": 0,
+        "events": 1581
+      }
+    },
+    {
+      "stage": "real BTC and ETH trades received",
+      "ok": true,
+      "detail": "trades for BTC-USD, ETH-USD",
+      "observed": [
+        "BTC-USD",
+        "ETH-USD"
+      ]
+    },
+    {
+      "stage": "forecasts generated on live data",
+      "ok": true,
+      "detail": "132 forecasts from 22 sampling instants",
+      "observed": 132
+    },
+    {
+      "stage": "forecasts expired and were scored",
+      "ok": true,
+      "detail": "108 resolved, 0 void",
+      "observed": 108
+    },
+    {
+      "stage": "every horizon produced a resolved forecast",
+      "ok": true,
+      "detail": "resolved at 300s, 1200s",
+      "observed": [
+        300,
+        1200
+      ]
+    },
+    {
+      "stage": "feed stayed connected",
+      "ok": true,
+      "detail": "0 reconnects in 72 min (0.0/min)",
+      "observed": {
+        "reconnects": 0,
+        "per_minute": 0.0
+      }
+    },
+    {
+      "stage": "probability never rises with the target",
+      "ok": true,
+      "detail": "0 violations in 110 adjacent target pairs",
+      "observed": 0
+    },
+    {
+      "stage": "predictions survive a restart",
+      "ok": true,
+      "detail": "132 of 132 present, chain intact (132 rows)",
+      "observed": {
+        "before": 132,
+        "after": 132,
+        "chain_ok": true
+      }
+    },
+    {
+      "stage": "no outcome recorded twice after restart",
+      "ok": true,
+      "detail": "108 outcomes before, 108 after a second evaluation pass (0 newly due), 0 duplicates",
+      "observed": 0
+    },
+    {
+      "stage": "validation report generated",
+      "ok": true,
+      "detail": "108 live forecasts resolved (18 independent observations). That is enough to show the pipe",
+      "observed": {
+        "forecasts": 132,
+        "resolved": 108,
+        "unresolved": 24,
+        "predictions_in_log_all_sources": 132
+      }
+    }
+  ],
+  "validation_report": {
+    "data_source": "live",
+    "generated": "2026-09-15T10:16:07.380089Z",
+    "scope": "LIVE forecasts only. Rows from other sources (none present) are excluded from every figure in this report.",
+    "totals": {
+      "forecasts": 132,
+      "resolved": 108,
+      "unresolved": 24,
+      "predictions_in_log_all_sources": 132
+    },
+    "groups": [
+      {
+        "symbol": "BTC-USD",
+        "horizon_s": 300,
+        "data_source": "live",
+        "forecasts": 54,
+        "resolved": 48,
+        "void": 0,
+        "stale_resolved": 6,
+        "n_timestamps": 8,
+        "n_non_overlapping": 8,
+        "n_days": 0.024316034188113428,
+        "first_forecast": "2026-09-15T09:34:37.358219Z",
+        "last_forecast": "2026-09-15T10:14:38.453759Z",
+        "brier": 0.177734181262895,
+        "log_loss": 0.5173364839360147,
+        "calibration_error": null,
+        "observed_above_rate": 0.4791666666666667,
+        "mean_forecast_above": 0.4186788151433654,
+        "accuracy": 0.6875,
+        "accuracy_interval": [
+          0.5466666274950367,
+          0.8005448783226851
+        ],
+        "buckets": [
+          {
+            "low": 0.5,
+            "high": 0.55,
+            "n": 8,
+            "predicted": 0.5,
+            "observed": 0.625,
+            "ci_low": 0.3057378545838018,
+            "ci_high": 0.863158240538479
+          },
+          {
+            "low": 0.55,
+            "high": 0.6,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.6,
+            "high": 0.65,
+            "n": 16,
+            "predicted": 0.6292542514460537,
+            "observed": 0.5625,
+            "ci_low": 0.3317819560677652,
+            "ci_high": 0.7690163666481449
+          },
+          {
+            "low": 0.65,
+            "high": 0.7,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.7,
+            "high": 0.75,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.75,
+            "high": 0.8,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.8,
+            "high": 1.01,
+            "n": 24,
+            "predicted": 0.9192531741363993,
+            "observed": 0.875,
+            "ci_low": 0.6899571185214244,
+            "ci_high": 0.9565574496068442
+          }
+        ],
+        "monotonicity_violations": 0,
+        "monotonicity_checked": 45,
+        "sufficiency": "INSUFFICIENT \u2014 SMOKE TEST ONLY",
+        "can_claim_calibration": false,
+        "note": "8 independent observations proves the pipeline runs and nothing about forecast quality"
+      },
+      {
+        "symbol": "BTC-USD",
+        "horizon_s": 1200,
+        "data_source": "live",
+        "forecasts": 12,
+        "resolved": 6,
+        "void": 0,
+        "stale_resolved": 6,
+        "n_timestamps": 1,
+        "n_non_overlapping": 1,
+        "n_days": 0.0,
+        "first_forecast": "2026-09-15T09:44:37.334525Z",
+        "last_forecast": "2026-09-15T10:04:37.505335Z",
+        "brier": 0.13501420487711357,
+        "log_loss": 0.40089423822309506,
+        "calibration_error": null,
+        "observed_above_rate": 0.16666666666666666,
+        "mean_forecast_above": 0.41868093232276454,
+        "accuracy": 0.8333333333333334,
+        "accuracy_interval": [
+          0.4364905634363539,
+          0.9699474141282696
+        ],
+        "buckets": [
+          {
+            "low": 0.5,
+            "high": 0.55,
+            "n": 1,
+            "predicted": 0.5,
+            "observed": 0.0,
+            "ci_low": 0.0,
+            "ci_high": 0.7934567085261071
+          },
+          {
+            "low": 0.55,
+            "high": 0.6,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.6,
+            "high": 0.65,
+            "n": 2,
+            "predicted": 0.6292370640059672,
+            "observed": 0.5,
+            "ci_low": 0.09452865480086611,
+            "ci_high": 0.905471345199134
+          },
+          {
+            "low": 0.65,
+            "high": 0.7,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.7,
+            "high": 0.75,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.75,
+            "high": 0.8,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.8,
+            "high": 1.01,
+            "n": 3,
+            "predicted": 0.9192459254089332,
+            "observed": 1.0,
+            "ci_low": 0.4384939195509822,
+            "ci_high": 1.0
+          }
+        ],
+        "monotonicity_violations": 0,
+        "monotonicity_checked": 10,
+        "sufficiency": "INSUFFICIENT \u2014 SMOKE TEST ONLY",
+        "can_claim_calibration": false,
+        "note": "1 independent observations proves the pipeline runs and nothing about forecast quality"
+      },
+      {
+        "symbol": "ETH-USD",
+        "horizon_s": 300,
+        "data_source": "live",
+        "forecasts": 54,
+        "resolved": 48,
+        "void": 0,
+        "stale_resolved": 18,
+        "n_timestamps": 8,
+        "n_non_overlapping": 8,
+        "n_days": 0.024316033698993055,
+        "first_forecast": "2026-09-15T09:34:37.353114Z",
+        "last_forecast": "2026-09-15T10:14:38.448622Z",
+        "brier": 0.15634017200089223,
+        "log_loss": 0.4638967608204183,
+        "calibration_error": null,
+        "observed_above_rate": 0.4583333333333333,
+        "mean_forecast_above": 0.41871090177971787,
+        "accuracy": 0.7083333333333334,
+        "accuracy_interval": [
+          0.5682047226383246,
+          0.8175858393813663
+        ],
+        "buckets": [
+          {
+            "low": 0.5,
+            "high": 0.55,
+            "n": 8,
+            "predicted": 0.5,
+            "observed": 0.75,
+            "ci_low": 0.40926987910258916,
+            "ci_high": 0.9285223111419724
+          },
+          {
+            "low": 0.55,
+            "high": 0.6,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.6,
+            "high": 0.65,
+            "n": 16,
+            "predicted": 0.628996155922868,
+            "observed": 0.625,
+            "ci_low": 0.38640647097934805,
+            "ci_high": 0.8151901744524719
+          },
+          {
+            "low": 0.65,
+            "high": 0.7,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.7,
+            "high": 0.75,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.75,
+            "high": 0.8,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.8,
+            "high": 1.01,
+            "n": 24,
+            "predicted": 0.9192665028611703,
+            "observed": 0.9166666666666666,
+            "ci_low": 0.741507847985494,
+            "ci_high": 0.9768416721570264
+          }
+        ],
+        "monotonicity_violations": 0,
+        "monotonicity_checked": 45,
+        "sufficiency": "INSUFFICIENT \u2014 SMOKE TEST ONLY",
+        "can_claim_calibration": false,
+        "note": "8 independent observations proves the pipeline runs and nothing about forecast quality"
+      },
+      {
+        "symbol": "ETH-USD",
+        "horizon_s": 1200,
+        "data_source": "live",
+        "forecasts": 12,
+        "resolved": 6,
+        "void": 0,
+        "stale_resolved": 6,
+        "n_timestamps": 1,
+        "n_non_overlapping": 1,
+        "n_days": 0.0,
+        "first_forecast": "2026-09-15T09:44:37.329414Z",
+        "last_forecast": "2026-09-15T10:04:37.451138Z",
+        "brier": 0.09193246189554023,
+        "log_loss": 0.3127332990112035,
+        "calibration_error": null,
+        "observed_above_rate": 0.3333333333333333,
+        "mean_forecast_above": 0.41869401833950537,
+        "accuracy": 1.0,
+        "accuracy_interval": [
+          0.6096569663469354,
+          1.0
+        ],
+        "buckets": [
+          {
+            "low": 0.5,
+            "high": 0.55,
+            "n": 1,
+            "predicted": 0.5,
+            "observed": 0.0,
+            "ci_low": 0.0,
+            "ci_high": 0.7934567085261071
+          },
+          {
+            "low": 0.55,
+            "high": 0.6,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.6,
+            "high": 0.65,
+            "n": 2,
+            "predicted": 0.629227328131088,
+            "observed": 1.0,
+            "ci_low": 0.3423719528896193,
+            "ci_high": 1.0
+          },
+          {
+            "low": 0.65,
+            "high": 0.7,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.7,
+            "high": 0.75,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.75,
+            "high": 0.8,
+            "n": 0,
+            "predicted": null,
+            "observed": null,
+            "ci_low": null,
+            "ci_high": null
+          },
+          {
+            "low": 0.8,
+            "high": 1.01,
+            "n": 3,
+            "predicted": 0.9192373909847603,
+            "observed": 1.0,
+            "ci_low": 0.4384939195509822,
+            "ci_high": 1.0
+          }
+        ],
+        "monotonicity_violations": 0,
+        "monotonicity_checked": 10,
+        "sufficiency": "INSUFFICIENT \u2014 SMOKE TEST ONLY",
+        "can_claim_calibration": false,
+        "note": "1 independent observations proves the pipeline runs and nothing about forecast quality"
+      }
+    ],
+    "stale_and_quality_events": {},
+    "reconnects": 0,
+    "headline": "108 live forecasts resolved (18 independent observations). That is enough to show the pipeline works end to end on real market, and not enough to support any claim about calibration or skill."
+  },
+  "error": null
+}

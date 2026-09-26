@@ -61,10 +61,30 @@ producing a project that will not open at all. Unity regenerates them with
 defaults; the four settings that then need changing are listed in
 `unity/docs/BREAKPOINT_UNITY_MIGRATION.md` §9.
 
+## The other applications in this repository
+
+Two applications unrelated to the game also live here, each in a self-contained
+top-level folder:
+
+- **`proofhound/`** — an evidence-lineage investigation tool. Next.js 15,
+  React 19, TypeScript.
+- **`forecaster/`** — a short-horizon crypto probability forecaster. Python
+  engine, Next.js front end.
+
+The pattern each follows, and which any future addition must follow:
+
+- One top-level directory, entirely self-contained.
+- Its own dependency manifest, lockfile, `.gitignore` and README.
+- Its own CI workflow, path-filtered to that directory, so it never triggers the
+  Unity or three.js jobs and they never trigger it.
+- Nothing outside its own folder is modified — with the sole exception of this
+  file and the root `README.md`, which have to name what exists.
+
 ## What must not happen here
 
 - Do not delete `reference/threejs-phase1/`.
 - Do not give a ball a `Rigidbody`.
 - Do not flip `noEngineReferences` to `false`.
-- Do not copy unrelated Dragon Phoenix Ascension monorepo files in. This
-  repository holds BREAKPOINT and the brand tokens it needs, nothing else.
+- Do not copy unrelated Dragon Phoenix Ascension monorepo files in. A separate
+  application in its own self-contained folder is fine — see above — but the
+  game's own code stays BREAKPOINT and the brand tokens it needs, nothing else.
