@@ -919,6 +919,82 @@ remains out-of-sample.
 
 ---
 
+## 11b. The collection stopped itself: a 100 MB wall, and the honest result
+
+Collection ended at **segment 85** on 28 Sep, not because the goal was reached but
+because the evidence file outgrew what GitHub will accept. Segments 86 and 89 both
+collected a full five hours and then lost all of it at the push:
+
+```
+remote: error: File forecaster/evidence/live.db is 101.15 MB;
+               this exceeds GitHub's file size limit of 100.00 MB
+! [remote rejected] HEAD -> claude/... (pre-receive hook declined)
+```
+
+The committed file is 104,206,336 bytes -- 651 KB under the wall. A segment adds
+about 1.2 MiB, so every further push fails. This is not a flake and no retry helps.
+
+The size guard written in section 11 warns at 128 MiB. That was set from measured
+growth without checking GitHub's own ceiling, so the guard sat *above* the wall it
+was supposed to warn about and could never fire. The guard was not wrong about the
+growth rate; it was pointed at the wrong limit.
+
+### What the sample says
+
+45,216 resolved live forecasts over 12.7 days; 7,536 independent observations.
+The 20-minute cells reached 731 of the 750 convention, the 5-minute cells 3,036
+and 3,038.
+
+| cell | indep | Brier | ECE | pooled skill | **stratified skill** |
+|---|---|---|---|---|---|
+| BTC-USD 300s | 3,036 | 0.17784 | 0.03668 | +0.2726 | **-0.0110** |
+| BTC-USD 1200s | 731 | 0.17726 | 0.03337 | +0.2785 | **-0.0087** |
+| ETH-USD 300s | 3,038 | 0.15414 | 0.00325 | +0.3669 | **-0.0001** |
+| ETH-USD 1200s | 731 | 0.15126 | 0.01294 | +0.3823 | **-0.0021** |
+| all four | 7,536 | | | +0.3218 | **-0.0059** |
+
+Monotonicity held exactly: 0 violations in 37,710 adjacent target pairs.
+
+**The pooled number is not skill.** It scores all six rungs against one base rate
+averaged over the whole ladder. A target 2.5 sigma away is almost never crossed and
+a 0 sigma target is a coin flip, so merely knowing the shape of the ladder already
+"beats" that reference. Stratified -- each rung against its own base rate -- the
+score is -0.0059, which is zero within noise and is bounded above by zero by
+construction, because each rung's reference is fitted on that rung's own outcomes.
+
+That is the expected result for a zero-drift baseline, and it is the honest one.
+The forecaster is well calibrated (ECE 0.003 to 0.037) and has no discrimination
+against climatology. Section 4 predicted exactly this before any live data existed.
+Nothing here was tuned on this sample.
+
+### Why the database is the size it is
+
+| part of the file | MiB | share |
+|---|---|---|
+| `predictions` table | 88.6 | 89.2% |
+| `outcomes` table | 3.4 | 3.4% |
+| indexes | 7.2 | 7.2% |
+
+The raw market data is already gone -- `compact` has nothing left to drop. Inside
+`predictions`, three text columns carry most of the weight:
+
+| column | MiB | bytes/row | in the hash chain? |
+|---|---|---|---|
+| `contributions_json` | 46.2 | 1,071 | no |
+| `features_json` | 19.7 | 457 | **yes** |
+| `confidence_reasons` | 3.1 | 71 | no |
+
+`contributions_json` is half the database and is *derived*: it can be recomputed
+from `features_json` plus `model_version`, both of which are kept and both of which
+the chain covers. `CHAINED_FIELDS` does not include it, so clearing it does not
+break the chain and does not make any forecast unreproducible.
+
+Clearing `contributions_json` and `confidence_reasons` would take the file from
+99.4 MiB to about 50 MiB and buy roughly 40 further segments. It is the only option
+that keeps collecting without weakening the evidence. It is a founder decision, not
+an automatic repair, and it has not been done.
+
+
 ## 12. Reproducing it
 
 Actions → **Live market proof** → Run workflow. About 72 minutes. The run commits
