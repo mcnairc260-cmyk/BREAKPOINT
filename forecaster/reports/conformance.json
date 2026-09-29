@@ -1,0 +1,63 @@
+{
+  "passed": 11,
+  "total": 11,
+  "ok": true,
+  "scope": "conformance harness on localhost \u2014 not real market data",
+  "checks": [
+    {
+      "name": "endpoint guard downgrades a non-venue host",
+      "ok": true,
+      "detail": "data_source=simulated"
+    },
+    {
+      "name": "live price checks pass over a real socket",
+      "ok": true,
+      "detail": "32 checks, 1,468 events"
+    },
+    {
+      "name": "dirty feed survived and bad data rejected",
+      "ok": true,
+      "detail": "400 events, 37 rejected, 1 reconnects"
+    },
+    {
+      "name": "forecasts produced on live-path data",
+      "ok": true,
+      "detail": "132 forecasts across 2 symbols"
+    },
+    {
+      "name": "forecasts resolved automatically at expiry",
+      "ok": true,
+      "detail": "108 resolved, 0 void"
+    },
+    {
+      "name": "probability never rises with the target",
+      "ok": true,
+      "detail": "0 violations in 110 adjacent pairs"
+    },
+    {
+      "name": "append-only chain intact under concurrency",
+      "ok": true,
+      "detail": "132 rows chained"
+    },
+    {
+      "name": "predictions survive a restart",
+      "ok": true,
+      "detail": "132 of 132 still present"
+    },
+    {
+      "name": "resolution is idempotent across restarts",
+      "ok": true,
+      "detail": "24 resolved on the first pass, 0 on the second"
+    },
+    {
+      "name": "conformance rows never appear in live metrics",
+      "ok": true,
+      "detail": "live=0, simulated=132"
+    },
+    {
+      "name": "a small sample refuses to report calibration",
+      "ok": true,
+      "detail": "2 groups labelled insufficient"
+    }
+  ]
+}

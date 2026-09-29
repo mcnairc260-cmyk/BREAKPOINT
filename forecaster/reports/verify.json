@@ -1,0 +1,131 @@
+{
+  "banner": "VALIDATION SCOPE: SIMULATED DATA ONLY \u2014 NO REAL-MARKET CLAIMS SUPPORTED",
+  "generated_at": "2026-09-15T10:42:10.106701Z",
+  "seeds": 6,
+  "quick": false,
+  "elapsed_s": 313.59,
+  "passed": 11,
+  "total": 11,
+  "checks": [
+    {
+      "name": "runs with the network off",
+      "passed": true,
+      "detail": "network access is blocked for this run (SocketBlockedError)",
+      "duration_s": 0.001,
+      "numbers": {}
+    },
+    {
+      "name": "persistence and hash chain",
+      "passed": true,
+      "detail": "20 rows chained, 2/2 edits blocked, 2/2 certainties refused, tamper caught",
+      "duration_s": 0.046,
+      "numbers": {
+        "verified": 20,
+        "blocked": 2,
+        "tamper_caught": true
+      }
+    },
+    {
+      "name": "tuning refused on simulated data",
+      "passed": true,
+      "detail": "tuning on simulated data is refused in code",
+      "duration_s": 0.967,
+      "numbers": {}
+    },
+    {
+      "name": "leakage canary caught",
+      "passed": true,
+      "detail": "a mis-declared feature was detected",
+      "duration_s": 20.517,
+      "numbers": {}
+    },
+    {
+      "name": "determinism",
+      "passed": true,
+      "detail": "same seed identical: True; different seed differs: True",
+      "duration_s": 15.463,
+      "numbers": {
+        "first": [
+          8841,
+          79383.02
+        ],
+        "second": [
+          8841,
+          79383.02
+        ]
+      }
+    },
+    {
+      "name": "feature parity across sources",
+      "passed": true,
+      "detail": "20 instants compared across three window sources, 0 mismatches",
+      "duration_s": 28.1,
+      "numbers": {
+        "checked": 20,
+        "mismatches": 0
+      }
+    },
+    {
+      "name": "refusals on bad input",
+      "passed": true,
+      "detail": "short history refused; stale refused; down refused",
+      "duration_s": 20.398,
+      "numbers": {
+        "outcomes": [
+          "short history refused",
+          "stale refused",
+          "down refused"
+        ]
+      }
+    },
+    {
+      "name": "dirty feed handled",
+      "passed": true,
+      "detail": "149 events rejected; {'duplicates': 123, 'out_of_order': 0, 'anomalies': 19, 'crossed_books': 7, 'rejected': 149, 'filter_resyncs': 0}",
+      "duration_s": 16.6,
+      "numbers": {
+        "rejected": 149,
+        "duplicates": 123,
+        "out_of_order": 0,
+        "anomalies": 19,
+        "crossed_books": 7,
+        "filter_resyncs": 0
+      }
+    },
+    {
+      "name": "served output ordering",
+      "passed": true,
+      "detail": "603 served forecasts, 0 ordering violations, 0 outside the floor",
+      "duration_s": 31.705,
+      "numbers": {
+        "checked": 603,
+        "violations": 0,
+        "floor_hits": 0
+      }
+    },
+    {
+      "name": "known analytic answer",
+      "passed": true,
+      "detail": "worst gap from the analytic answer 0.0698 over 50 points",
+      "duration_s": 31.245,
+      "numbers": {
+        "max_abs_error": 0.06979415425256352,
+        "points": 50
+      }
+    },
+    {
+      "name": "null-alpha gate",
+      "passed": true,
+      "detail": "best skill over the baseline on a martingale -0.0782 (must stay under +0.02)",
+      "duration_s": 148.545,
+      "numbers": {
+        "skills": [
+          -0.111496241502272,
+          -0.5066853569126437,
+          -0.07821463034840903
+        ],
+        "worst": -0.07821463034840903
+      }
+    }
+  ]
+}
