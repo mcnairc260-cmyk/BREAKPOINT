@@ -1033,6 +1033,70 @@ lesson than the byte count. A threshold is only a guard if it sits below the thi
 that actually fails.
 
 
+## 11c. The goal reached: 757 independent twenty-minute observations
+
+Collection resumed at segment 97 and crossed the 750 convention at segment 98 on
+1 Oct. Both segments incremented by exactly +54 per five-minute cell and +13 per
+twenty-minute cell, the normal shape, so the migration distorted nothing.
+
+**46,824 resolved live forecasts. 7,804 independent observations. 15.6 days.**
+
+| cell | indep | Brier | ECE | pooled skill | **stratified skill** |
+|---|---|---|---|---|---|
+| BTC-USD 300s | 3,144 | 0.17757 | 0.03615 | +0.2727 | **-0.0109** |
+| BTC-USD 1200s | 757 | 0.17693 | 0.03342 | +0.2802 | **-0.0088** |
+| ETH-USD 300s | 3,146 | 0.15426 | 0.00316 | +0.3664 | **-0.0001** |
+| ETH-USD 1200s | 757 | 0.15166 | 0.01205 | +0.3809 | **-0.0018** |
+| **all four** | **7,804** | | | **+0.3221** | **-0.0058** |
+
+Monotonicity held exactly: **0 violations in 39,050 adjacent target pairs**. Zero
+reconnects across the whole run. 36 forecasts open at the cut, 36 VOID in total --
+all of them from the dead-feed segment in section 11a.
+
+### Per-rung detail, twenty-minute cells
+
+| rung | BTC base | BTC mean p | BTC skill | ETH base | ETH mean p | ETH skill |
+|---|---|---|---|---|---|---|
+| +2.50 | 0.0449 | 0.0121 | -0.0252 | 0.0172 | 0.0121 | -0.0016 |
+| +1.00 | 0.1810 | 0.1151 | -0.0293 | 0.1162 | 0.1151 | +0.0000 |
+| +0.25 | 0.4122 | 0.3708 | -0.0071 | 0.3659 | 0.3708 | +0.0000 |
+| 0.00 | 0.5099 | 0.5000 | -0.0004 | 0.5046 | 0.5000 | -0.0001 |
+| -0.25 | 0.6235 | 0.6292 | -0.0001 | 0.6618 | 0.6292 | -0.0047 |
+| -1.00 | 0.8402 | 0.8849 | -0.0149 | 0.9089 | 0.8849 | -0.0069 |
+
+### What it means, stated plainly
+
+The forecaster is **well calibrated and has no discrimination**. Each rung's mean
+forecast sits close to that rung's realised base rate -- that is the calibration.
+Within a rung, the forecast does not order the outcomes better than a constant --
+that is the absent discrimination, and the stratified skill of **-0.0058** is the
+measurement of it.
+
+The pooled **+0.3221** is not skill and must not be quoted as such. It scores all
+six rungs against one base rate averaged over the ladder, so merely knowing that a
+2.5-sigma target is rarely crossed and a 0-sigma target is a coin flip already
+"beats" that reference. Stratified against each rung's own base rate the number is
+bounded above by zero by construction, because the reference is fitted on that
+rung's own outcomes; -0.0058 is therefore zero within noise.
+
+This is the correct and predicted result for a zero-drift baseline. Section 4
+derived it from the maths before any live tick existed, and said that routine
+70% probabilities for near-the-money targets would be a bug or a leak rather than
+a discovery. Fifteen days of real BTC and ETH did not produce them.
+
+### The 19 observations that were nearly fought for
+
+At the 100 MB wall the twenty-minute cells stood at 731 of 750. The honest
+reading, recorded before the migration was approved, was that the result would not
+change. It did not: stratified skill was **-0.0059 at 731** and **-0.0058 at 757**.
+750 was this project's own convention for *training* a learner, which this sample
+is forbidden to do, so crossing it unlocked nothing but a round number. Worth
+knowing for the next threshold that looks like it has to be met.
+
+**Nothing in the model, the ladder, the horizons or the thresholds was changed in
+response to any of these numbers.**
+
+
 ## 12. Reproducing it
 
 Actions → **Live market proof** → Run workflow. About 72 minutes. The run commits
