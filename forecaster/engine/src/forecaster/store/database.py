@@ -35,6 +35,26 @@ _SQLITE_APPEND_ONLY = (
 )
 
 
+def apply_append_only_guard(conn: Connection, dialect: str) -> None:
+    """(Re)create the triggers that make `predictions` append-only.
+
+    Takes a connection rather than opening one so that the caller can drop the
+    update trigger and put it back inside a single transaction: if anything in
+    between fails, the rollback restores the guard along with everything else,
+    and there is no window in which the table is silently editable.
+
+    Public because the one sanctioned exception to append-only -- blanking the
+    derived `contributions_json` column -- has to suspend that trigger. It must
+    put back *this* definition rather than a copy living next to the migration,
+    because a copy can drift and the drift would be invisible: the table would
+    still look guarded while allowing an edit.
+    """
+    if dialect != "sqlite":
+        return
+    for statement in _SQLITE_APPEND_ONLY:
+        conn.execute(text(statement))
+
+
 @dataclass
 class Database:
     engine: Engine
@@ -115,9 +135,7 @@ def open_database(url: str, *, create: bool = True) -> Database:
                 )
             )
             _add_column_if_missing(conn, "quality_events", "data_source", "VARCHAR(16)")
-        if engine.dialect.name == "sqlite":
-            with engine.begin() as conn:
-                for statement in _SQLITE_APPEND_ONLY:
-                    conn.execute(text(statement))
+        with engine.begin() as conn:
+            apply_append_only_guard(conn, engine.dialect.name)
 
     return Database(engine=engine, dialect=engine.dialect.name)

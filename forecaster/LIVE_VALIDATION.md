@@ -989,10 +989,48 @@ from `features_json` plus `model_version`, both of which are kept and both of wh
 the chain covers. `CHAINED_FIELDS` does not include it, so clearing it does not
 break the chain and does not make any forecast unreproducible.
 
-Clearing `contributions_json` and `confidence_reasons` would take the file from
-99.4 MiB to about 50 MiB and buy roughly 40 further segments. It is the only option
-that keeps collecting without weakening the evidence. It is a founder decision, not
-an automatic repair, and it has not been done.
+### What was done about it
+
+On the founder's decision, `contributions_json` was blanked and the collection
+resumed. `forecaster drop-explanations --yes --vacuum` exists for exactly this and
+nothing else:
+
+```
+blanked the explanation on 45,252 of 45,252 predictions
+chain re-verified: 45,252 rows, head acec12e2f4c4... (unchanged)
+104,206,336 bytes -> 57,724,928 bytes (44.3 MiB reclaimed)
+```
+
+55 MiB leaves about 25 segments before the wall, where two were needed.
+
+It is the only sanctioned exception to append-only, so it is built to be checkable
+rather than trusted:
+
+- It suspends `trg_predictions_no_update` -- the same manoeuvre a tamper would
+  need -- inside one transaction with the restore, so neither a failure nor a
+  rollback can leave the table editable. A test asserts the guard is back, and
+  breaking the restore makes that test fail.
+- It reads the chain head before and after and refuses to report success if the
+  two differ. They cannot legitimately differ: `contributions_json` is not in
+  `CHAINED_FIELDS`, so no `row_hash` input changes. A test widens the update onto
+  a chained column and watches `ChainBreak` fire.
+- `features_json` and `model_version` stay, and the chain covers both, so every
+  forecast is still exactly reproducible and every explanation recomputable.
+- It refuses to run without `--yes`.
+
+The live report was regenerated afterwards and is **byte-identical** to the one
+taken before: same Brier scores, same ECE, same monotonicity count, same
+stratified skill of -0.0059. Blanking a derived column changed no result, which is
+the whole claim.
+
+The size guard was the other half of the defect and was fixed with it. It now
+warns at 70 MiB and fails the run at 90 MiB -- below GitHub's 100 MB wall, where a
+guard is of some use -- and its message names `drop-explanations` and prints how
+many segments of room are left. The old thresholds, 128 and 320 MiB, were both
+above the wall: measured carefully from real segments, and never once checked
+against the limit they were supposed to protect against. That is the more useful
+lesson than the byte count. A threshold is only a guard if it sits below the thing
+that actually fails.
 
 
 ## 12. Reproducing it

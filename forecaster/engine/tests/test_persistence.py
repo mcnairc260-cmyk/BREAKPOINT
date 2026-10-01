@@ -78,6 +78,75 @@ class TestAppendOnly:
             repos["prediction"].append(prediction_row(eval_at_ns=500))
 
 
+class TestDroppingExplanations:
+    """The one sanctioned edit: blanking a derived column to fit under a size limit.
+
+    It has to suspend the append-only trigger to do its work, which is exactly
+    the manoeuvre a tamper would use, so what matters is that the chain comes out
+    identical and the guard comes back.
+    """
+
+    def test_the_explanations_go_and_the_forecasts_stay(self, repos) -> None:
+        for i in range(6):
+            repos["prediction"].append(
+                prediction_row(
+                    created_ns=1_000 + i,
+                    contributions_json='[{"a": 1}]',
+                    features_json='{"ret_1m": 0.0003}',
+                )
+            )
+        head = repos["prediction"].chain_head()
+
+        changed = repos["prediction"].clear_contributions()
+
+        assert changed == 6
+        assert repos["prediction"].count() == 6
+        assert repos["prediction"].verify_chain() == 6
+        assert repos["prediction"].chain_head() == head, "the chain head moved"
+        with repos["prediction"].db.connect() as conn:
+            stored = [
+                r[0] for r in conn.execute(text("SELECT contributions_json FROM predictions"))
+            ]
+        assert stored == ["[]"] * 6
+        with repos["prediction"].db.connect() as conn:
+            kept = [r[0] for r in conn.execute(text("SELECT features_json FROM predictions"))]
+        assert kept == ['{"ret_1m": 0.0003}'] * 6, "the features a forecast is rebuilt from"
+
+    def test_the_append_only_guard_is_back_afterwards(self, repos) -> None:
+        """The failure that would matter most is leaving the table editable."""
+        repos["prediction"].append(prediction_row())
+        repos["prediction"].clear_contributions()
+        with (
+            pytest.raises(IntegrityError, match="append-only"),
+            repos["prediction"].db.begin() as conn,
+        ):
+            conn.execute(text("UPDATE predictions SET p_above = 0.99 WHERE id = 1"))
+        with (
+            pytest.raises(IntegrityError, match="append-only"),
+            repos["prediction"].db.begin() as conn,
+        ):
+            conn.execute(text("DELETE FROM predictions WHERE id = 1"))
+
+    def test_running_it_twice_changes_nothing_the_second_time(self, repos) -> None:
+        repos["prediction"].append(prediction_row(contributions_json='[{"a": 1}]'))
+        assert repos["prediction"].clear_contributions() == 1
+        assert repos["prediction"].clear_contributions() == 0
+
+    def test_a_later_forecast_still_appends_onto_the_blanked_chain(self, repos) -> None:
+        """Blanking must not strand the chain: collection has to be able to resume."""
+        for i in range(3):
+            repos["prediction"].append(
+                prediction_row(
+                    created_ns=1_000 + i,
+                    contributions_json='[{"a": 1}]',
+                    features_json='{"ret_1m": 0.0003}',
+                )
+            )
+        repos["prediction"].clear_contributions()
+        repos["prediction"].append(prediction_row(created_ns=2_000))
+        assert repos["prediction"].verify_chain() == 4
+
+
 class TestHashChain:
     def test_the_chain_verifies_over_many_rows(self, repos) -> None:
         for i in range(25):

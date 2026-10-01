@@ -42,6 +42,21 @@ def git_sha() -> str | None:
         return None
 
 
+def _database_path(config: Config) -> Path | None:
+    """The database file, when the database is a local file at all.
+
+    Returns None for Postgres and for `:memory:`, where "how big is the file"
+    has no answer and the caller simply skips reporting it.
+    """
+    url = config.database_url
+    if not url.startswith("sqlite"):
+        return None
+    tail = url.split("///", 1)[-1]
+    if not tail or tail == ":memory:":
+        return None
+    return Path(tail)
+
+
 def _open(config: Config) -> tuple[Any, Any, Any, Any, Any]:
     from forecaster.store import (
         MarketRepository,
@@ -831,6 +846,81 @@ def cmd_compact(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_drop_explanations(args: argparse.Namespace) -> int:
+    """Blank the per-forecast explanations, keeping every forecast and outcome.
+
+    Why this exists: a segmented track record travels in git, and GitHub refuses
+    any file over 100 MB. At segment 85 the evidence file reached 104,206,336
+    bytes -- 651 KB under that wall -- and the next six segments each collected
+    five hours of market data and then lost all of it when the push was
+    rejected. `contributions_json` was 46 of those 99 MiB.
+
+    What is lost: the stored reason a forecast came out where it did. It can be
+    recomputed, because it is a pure function of `features_json` and
+    `model_version`, which are kept and which the hash chain covers.
+
+    What is not lost: any forecast, any outcome, and any link in the chain. The
+    chain is verified before and after, and because no chained field is touched,
+    the head hash must come out identical. If it does not, this stops and says
+    so rather than committing a track record it cannot vouch for.
+    """
+    config = load_config()
+    _, _, prediction_repo, _, _ = _open(config)
+
+    path = _database_path(config)
+    before_bytes = path.stat().st_size if path else None
+
+    head_before = prediction_repo.chain_head()
+    verified_before = prediction_repo.verify_chain()
+
+    if not args.yes:
+        print("")
+        print(f"  {verified_before:,} predictions, chain head {head_before[:12]}…")
+        print("  This blanks `contributions_json` on every one of them. The forecasts,")
+        print("  the outcomes and the hash chain are untouched, and the explanation can")
+        print("  be recomputed from the features that are kept.")
+        print("  Re-run with --yes to do it.")
+        print("")
+        return 1
+
+    changed = prediction_repo.clear_contributions()
+
+    head_after = prediction_repo.chain_head()
+    verified_after = prediction_repo.verify_chain()
+    if head_after != head_before or verified_after != verified_before:
+        print("")
+        print("  REFUSING TO REPORT SUCCESS: the chain changed.")
+        print(f"  head before {head_before}")
+        print(f"  head after  {head_after}")
+        print(f"  rows before {verified_before:,}, after {verified_after:,}")
+        print("  Nothing here should have been able to do that. Do not push this file.")
+        print("")
+        return 1
+
+    if args.vacuum and path:
+        from sqlalchemy import text
+
+        # Outside a transaction: SQLite refuses to VACUUM inside one.
+        with prediction_repo.db.engine.connect().execution_options(
+            isolation_level="AUTOCOMMIT"
+        ) as conn:
+            conn.execute(text("VACUUM"))
+
+    after_bytes = path.stat().st_size if path else None
+    print("")
+    print(f"  blanked the explanation on {changed:,} of {verified_after:,} predictions")
+    print(f"  chain re-verified: {verified_after:,} rows, head {head_after[:12]}… (unchanged)")
+    if before_bytes and after_bytes:
+        print(
+            f"  {before_bytes:,} bytes -> {after_bytes:,} bytes "
+            f"({(before_bytes - after_bytes) / 1048576:.1f} MiB reclaimed)"
+        )
+        if not args.vacuum:
+            print("  pass --vacuum to actually reclaim the space")
+    print("")
+    return 0
+
+
 def cmd_probe_venues(args: argparse.Namespace) -> int:
     """Which exchanges can this machine actually reach, and at which layer does it fail?"""
     import json as _json
@@ -1091,6 +1181,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--vacuum", action="store_true", help="reclaim the space afterwards")
     p.add_argument("--force", action="store_true", help="compact even with predictions still open")
     p.set_defaults(func=cmd_compact)
+
+    p = sub.add_parser(
+        "drop-explanations",
+        help="blank the per-forecast explanations, keeping every forecast and outcome",
+    )
+    p.add_argument("--vacuum", action="store_true", help="reclaim the space afterwards")
+    p.add_argument("--yes", action="store_true", help="required: this edits the evidence file")
+    p.set_defaults(func=cmd_drop_explanations)
 
     p = sub.add_parser(
         "probe-venues", help="which exchanges can this machine reach, and where does it fail"

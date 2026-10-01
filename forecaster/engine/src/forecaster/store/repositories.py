@@ -13,11 +13,11 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import and_, delete, desc, func, insert, select, update
+from sqlalchemy import and_, delete, desc, func, insert, select, text, update
 from sqlalchemy.engine import Connection
 from sqlalchemy.exc import IntegrityError
 
-from forecaster.store.database import Database
+from forecaster.store.database import Database, apply_append_only_guard
 from forecaster.store.hashchain import GENESIS, row_digest, verify_chain
 from forecaster.store.schema import (
     bars,
@@ -422,6 +422,12 @@ class MarketRepository:
                 conn.execute(delete(table).where(table.c.data_source == source.value))
 
 
+#: What `contributions_json` holds when no explanation is recorded. Already the
+#: value the backtester and the verification suite write, so a blanked row is
+#: indistinguishable from one that never had an explanation -- which is the
+#: truth about it.
+NO_CONTRIBUTIONS = "[]"
+
 #: How many times an append may lose the race for the chain head before it
 #: gives up. Generous enough for ordinary contention, small enough that a
 #: livelock fails loudly instead of hanging.
@@ -614,6 +620,51 @@ class PredictionRepository:
         with self.db.connect() as conn:
             rows = [dict(r._mapping) for r in conn.execute(stmt)]
         return verify_chain(rows)
+
+    def chain_head(self) -> str:
+        """The hash of the newest prediction, or GENESIS when there are none.
+
+        The whole chain hangs off this one value, so a migration can hold it
+        before and after and prove it did not disturb the history.
+        """
+        with self.db.connect() as conn:
+            return self._head_hash(conn)
+
+    def clear_contributions(self) -> int:
+        """Blank the stored explanations. Returns how many rows changed.
+
+        `contributions_json` is about half of a long track record by bytes, and
+        it is the one large column on `predictions` that the hash chain does not
+        cover. It is also *derived*: the explanation is a pure function of
+        `features_json` and `model_version`, both of which are kept and both of
+        which the chain does cover. So an explanation can be recomputed from what
+        remains, and that is what makes dropping it different in kind from
+        dropping a forecast, which could never be recovered.
+
+        This is the only sanctioned exception to append-only, and it has to
+        suspend the trigger that enforces the rule, so it is deliberately not
+        reachable from anything the collector runs -- only from an operator
+        running `forecaster drop-explanations`.
+
+        The caller must verify the chain afterwards. That check is not a
+        formality: no chained field is touched here, so every `row_hash` must
+        still match exactly what it matched before. If one does not, something
+        other than this method has edited the table, and the track record is no
+        longer trustworthy.
+        """
+        with self.db.begin() as conn:
+            conn.execute(text("DROP TRIGGER IF EXISTS trg_predictions_no_update"))
+            try:
+                changed = conn.execute(
+                    update(predictions)
+                    .where(predictions.c.contributions_json != NO_CONTRIBUTIONS)
+                    .values(contributions_json=NO_CONTRIBUTIONS)
+                ).rowcount
+            finally:
+                # Restored inside the same transaction as the drop, so neither a
+                # failure here nor the rollback can leave the table editable.
+                apply_append_only_guard(conn, self.db.dialect)
+        return int(changed)
 
     def count(self) -> int:
         with self.db.connect() as conn:

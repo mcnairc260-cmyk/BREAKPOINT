@@ -241,13 +241,22 @@ jobs:
       # git objects. Leaving the schedule on afterwards reaches 1.3 GiB at
       # thirty days and 11 GiB at ninety.
       #
-      # The first thresholds were set from the simulated estimate and would have
-      # warned at segment 35 -- during the run they exist to protect, which is
-      # how an alarm teaches people to ignore it. 128 MiB is segment 70, safely
-      # past the goal; 320 MiB is segment 176. This never blocks a commit --
-      # evidence is already pushed by the time it runs -- it just makes sure
-      # nobody finds out by surprise.
-      - name: Warn before the track record outgrows the repository
+      # Both earlier threshold pairs were wrong, in opposite directions. The
+      # first, from the simulated estimate, would have warned at segment 35 --
+      # during the run it exists to protect, which is how an alarm teaches
+      # people to ignore it. The second, 128 and 320 MiB, was measured from real
+      # segments but never checked against the only limit that actually bites:
+      # GitHub refuses any single file over 100 MB, and both thresholds sat
+      # above it. So the guard could not fire before the wall, and did not.
+      # Segment 85 committed at 104,206,336 bytes -- 651 KB under -- and
+      # segments 86 and 89 through 95 each collected five hours of market data
+      # and lost all of it to `pre-receive hook declined`.
+      #
+      # The thresholds now sit below the wall, where a guard belongs: 70 MiB
+      # leaves about 16 segments, and 90 MiB about 5. This still never blocks a
+      # commit -- the evidence is already pushed by the time it runs -- it just
+      # has to speak while there is still room to act.
+      - name: Warn before the track record outgrows GitHub's file size limit
         if: ${{ !cancelled() }}
         working-directory: .
         run: |
@@ -256,29 +265,36 @@ jobs:
           BYTES=$(stat -c%s forecaster/evidence/live.db)
           MIB=$(( BYTES / 1048576 ))
           echo "track record: ${MIB} MiB"
-          if [ "$MIB" -lt 128 ]; then
+          if [ "$MIB" -lt 70 ]; then
             exit 0
           fi
+          HEADROOM=$(( 100 - MIB ))
+          SEGMENTS=$(( HEADROOM * 10 / 18 ))
           {
-            echo "## The track record is getting large"
+            echo "## The track record is approaching GitHub's file size limit"
             echo
-            echo "The database is **${MIB} MiB**. Git keeps a full copy per segment, so"
-            echo "the cost of continuing grows with every run."
+            echo "The database is **${MIB} MiB**. GitHub refuses to accept any file over"
+            echo "100 MB, so there is room for about **${SEGMENTS} more segments** before a"
+            echo "push is rejected and that segment's five hours are lost."
             echo
-            echo "The 750-observation goal needs about 54 segments and about 98 MiB."
-            echo "Past that, collecting for its own sake is not free."
+            echo "A segment adds about 1.8 MiB. This is a hard remote limit, not a"
+            echo "repository setting, and no retry gets around it."
             echo
             echo "Options, cheapest first:"
+            echo "* \`forecaster drop-explanations --yes --vacuum\` -- blanks the derived"
+            echo "  \`contributions_json\` column, which is about half the file. Keeps every"
+            echo "  forecast, outcome and hash-chain link; the explanation can be recomputed"
+            echo "  from the features that stay. Bought 44 MiB on 1 Oct;"
             echo "* turn the schedule off -- the evidence collected is already committed;"
             echo "* keep collecting but stop committing the database, publishing only the"
             echo "  two report files;"
             echo "* move the database out of git."
           } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$MIB" -ge 320 ]; then
-            echo "::error::The track record is ${MIB} MiB. This segment is committed and safe, but the schedule should be turned off or the database moved out of git."
+          if [ "$MIB" -ge 90 ]; then
+            echo "::error::The track record is ${MIB} MiB and GitHub rejects a file over 100 MB. This segment is committed and safe, but roughly ${SEGMENTS} segments remain before pushes start failing. Act now -- see the run summary."
             exit 1
           fi
-          echo "::warning::The track record is ${MIB} MiB and grows with every segment."
+          echo "::warning::The track record is ${MIB} MiB; about ${SEGMENTS} segments of room left before GitHub's 100 MB limit."
 
       - name: Fail if collection failed
         if: ${{ steps.collect.outputs.status != '0' }}
