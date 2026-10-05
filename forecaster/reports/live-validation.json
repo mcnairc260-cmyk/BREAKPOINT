@@ -1,46 +1,46 @@
 {
   "data_source": "live",
-  "generated": "2026-10-05T05:21:41.702585Z",
+  "generated": "2026-10-05T11:14:11.937964Z",
   "scope": "LIVE forecasts only. Rows from other sources (none present) are excluded from every figure in this report.",
   "totals": {
-    "forecasts": 55704,
-    "resolved": 55668,
+    "forecasts": 56508,
+    "resolved": 56472,
     "unresolved": 36,
-    "predictions_in_log_all_sources": 55704
+    "predictions_in_log_all_sources": 56508
   },
   "groups": [
     {
       "symbol": "BTC-USD",
       "horizon_s": 300,
       "data_source": "live",
-      "forecasts": 22440,
-      "resolved": 22428,
+      "forecasts": 22764,
+      "resolved": 22752,
       "void": 12,
       "stale_resolved": 72,
-      "n_timestamps": 3738,
-      "n_non_overlapping": 3738,
-      "n_days": 19.11923859317456,
+      "n_timestamps": 3792,
+      "n_non_overlapping": 3792,
+      "n_days": 19.364029778044166,
       "first_forecast": "2026-09-16T02:04:59.876451Z",
-      "last_forecast": "2026-10-05T04:56:42.090902Z",
-      "brier": 0.17760549455649005,
-      "log_loss": 0.5276482512780214,
-      "calibration_error": 0.03560911477336241,
-      "observed_above_rate": 0.42790262172284643,
-      "mean_forecast_above": 0.41867588305070197,
-      "accuracy": 0.7170947030497592,
+      "last_forecast": "2026-10-05T10:49:12.049274Z",
+      "brier": 0.17764801338488345,
+      "log_loss": 0.5277709338520069,
+      "calibration_error": 0.035799819577814286,
+      "observed_above_rate": 0.4277865682137834,
+      "mean_forecast_above": 0.41867589904901753,
+      "accuracy": 0.7169040084388185,
       "accuracy_interval": [
-        0.7111631046360885,
-        0.7229519436798731
+        0.7110138929861105,
+        0.7227208892071352
       ],
       "buckets": [
         {
           "low": 0.5,
           "high": 0.55,
-          "n": 3738,
+          "n": 3792,
           "predicted": 0.5,
-          "observed": 0.5024077046548957,
-          "ci_low": 0.4863846486621148,
-          "ci_high": 0.5184258168583925
+          "observed": 0.5026371308016878,
+          "ci_low": 0.48672827793088946,
+          "ci_high": 0.5185406458303129
         },
         {
           "low": 0.55,
@@ -54,11 +54,11 @@
         {
           "low": 0.6,
           "high": 0.65,
-          "n": 7476,
-          "predicted": 0.6292389360780437,
-          "observed": 0.5972445157838416,
-          "ci_low": 0.5860795305330149,
-          "ci_high": 0.608309612680927
+          "n": 7584,
+          "predicted": 0.6292389587799773,
+          "observed": 0.5967827004219409,
+          "ci_low": 0.5856959925953911,
+          "ci_high": 0.6077714092544314
         },
         {
           "low": 0.65,
@@ -90,51 +90,51 @@
         {
           "low": 0.8,
           "high": 1.01,
-          "n": 11214,
-          "predicted": 0.9192483449275475,
-          "observed": 0.8701622971285893,
-          "ci_low": 0.8638140760222324,
-          "ci_high": 0.8762569907683703
+          "n": 11376,
+          "predicted": 0.9192483501799473,
+          "observed": 0.8701652601969058,
+          "ci_low": 0.8638633629665531,
+          "ci_high": 0.8762172371008503
         }
       ],
       "monotonicity_violations": 0,
-      "monotonicity_checked": 18700,
+      "monotonicity_checked": 18970,
       "sufficiency": "USABLE",
       "can_claim_calibration": true,
-      "note": "3738 independent observations over 19.1 days"
+      "note": "3792 independent observations over 19.4 days"
     },
     {
       "symbol": "BTC-USD",
       "horizon_s": 1200,
       "data_source": "live",
-      "forecasts": 5406,
-      "resolved": 5400,
+      "forecasts": 5484,
+      "resolved": 5478,
       "void": 6,
       "stale_resolved": 6,
-      "n_timestamps": 900,
-      "n_non_overlapping": 900,
-      "n_days": 19.101777066256908,
+      "n_timestamps": 913,
+      "n_non_overlapping": 913,
+      "n_days": 19.346580706188796,
       "first_forecast": "2026-09-16T02:14:59.850636Z",
-      "last_forecast": "2026-10-05T04:41:33.389160Z",
-      "brier": 0.17652763226221194,
-      "log_loss": 0.5297461654833059,
-      "calibration_error": 0.03418520632039371,
-      "observed_above_rate": 0.43777777777777777,
-      "mean_forecast_above": 0.4186755712138972,
-      "accuracy": 0.7185185185185186,
+      "last_forecast": "2026-10-05T10:34:04.423651Z",
+      "brier": 0.17644076652717888,
+      "log_loss": 0.5297221501247598,
+      "calibration_error": 0.03401077125966621,
+      "observed_above_rate": 0.43829864914202266,
+      "mean_forecast_above": 0.4186755788834924,
+      "accuracy": 0.7186929536327127,
       "accuracy_interval": [
-        0.7063713531932323,
-        0.7303549934857674
+        0.706635753970184,
+        0.7304436392030883
       ],
       "buckets": [
         {
           "low": 0.5,
           "high": 0.55,
-          "n": 900,
+          "n": 913,
           "predicted": 0.5,
-          "observed": 0.5144444444444445,
-          "ci_low": 0.48179942732705044,
-          "ci_high": 0.5469666750519505
+          "observed": 0.515881708652793,
+          "ci_low": 0.483466179662463,
+          "ci_high": 0.5481641477572354
         },
         {
           "low": 0.55,
@@ -148,11 +148,11 @@
         {
           "low": 0.6,
           "high": 0.65,
-          "n": 1800,
-          "predicted": 0.6292386391542644,
-          "observed": 0.6033333333333334,
-          "ci_low": 0.5805361219388692,
-          "ci_high": 0.6256904114773688
+          "n": 1826,
+          "predicted": 0.629238640886193,
+          "observed": 0.6046002190580504,
+          "ci_low": 0.5819767751443462,
+          "ci_high": 0.6267844640798577
         },
         {
           "low": 0.65,
@@ -184,51 +184,51 @@
         {
           "low": 0.8,
           "high": 1.01,
-          "n": 2700,
-          "predicted": 0.919248356908315,
-          "observed": 0.8729629629629629,
-          "ci_low": 0.8598694286732718,
-          "ci_high": 0.8849966907029521
+          "n": 2739,
+          "predicted": 0.9192483558606291,
+          "observed": 0.872946330777656,
+          "ci_low": 0.8599494565071374,
+          "ci_high": 0.8848985142980303
         }
       ],
       "monotonicity_violations": 0,
-      "monotonicity_checked": 4505,
+      "monotonicity_checked": 4570,
       "sufficiency": "USABLE",
       "can_claim_calibration": true,
-      "note": "900 independent observations over 19.1 days"
+      "note": "913 independent observations over 19.3 days"
     },
     {
       "symbol": "ETH-USD",
       "horizon_s": 300,
       "data_source": "live",
-      "forecasts": 22452,
-      "resolved": 22440,
+      "forecasts": 22776,
+      "resolved": 22764,
       "void": 12,
-      "stale_resolved": 6162,
-      "n_timestamps": 3740,
-      "n_non_overlapping": 3740,
-      "n_days": 19.119238532788554,
+      "stale_resolved": 6276,
+      "n_timestamps": 3794,
+      "n_non_overlapping": 3794,
+      "n_days": 19.363957836749503,
       "first_forecast": "2026-09-16T02:04:59.871334Z",
-      "last_forecast": "2026-10-05T04:56:42.080567Z",
-      "brier": 0.15371486629980338,
-      "log_loss": 0.4609267563460352,
-      "calibration_error": 0.004517609905564466,
-      "observed_above_rate": 0.4213458110516934,
-      "mean_forecast_above": 0.41867454307004776,
-      "accuracy": 0.7560160427807486,
+      "last_forecast": "2026-10-05T10:49:05.828429Z",
+      "brier": 0.15377263930772667,
+      "log_loss": 0.46106534820815576,
+      "calibration_error": 0.004352216534677613,
+      "observed_above_rate": 0.42149885784572133,
+      "mean_forecast_above": 0.41867440606269224,
+      "accuracy": 0.7557107713934282,
       "accuracy_interval": [
-        0.75035312100988,
-        0.7615913225830564
+        0.7500862906118785,
+        0.7612489604204372
       ],
       "buckets": [
         {
           "low": 0.5,
           "high": 0.55,
-          "n": 3740,
+          "n": 3794,
           "predicted": 0.5,
-          "observed": 0.5018716577540107,
-          "ci_low": 0.4858533594737609,
-          "ci_high": 0.5178861149740895
+          "observed": 0.5021085925144966,
+          "ci_low": 0.48620438475053834,
+          "ci_high": 0.5180085345033874
         },
         {
           "low": 0.55,
@@ -242,11 +242,11 @@
         {
           "low": 0.6,
           "high": 0.65,
-          "n": 7480,
-          "predicted": 0.6292417016429618,
-          "observed": 0.636096256684492,
-          "ci_low": 0.625125620785478,
-          "ci_high": 0.6469271709251323
+          "n": 7588,
+          "predicted": 0.629240878234402,
+          "observed": 0.6352134949920928,
+          "ci_low": 0.6243165220548881,
+          "ci_high": 0.6459736273075539
         },
         {
           "low": 0.65,
@@ -278,51 +278,51 @@
         {
           "low": 0.8,
           "high": 1.01,
-          "n": 11220,
-          "predicted": 0.9192461255210589,
-          "observed": 0.9219251336898395,
-          "ci_low": 0.9168151120110909,
-          "ci_high": 0.9267463295545134
+          "n": 11382,
+          "predicted": 0.9192462150589278,
+          "observed": 0.9219820769636268,
+          "ci_low": 0.9169112169370653,
+          "ci_high": 0.9267681822212719
         }
       ],
       "monotonicity_violations": 0,
-      "monotonicity_checked": 18710,
+      "monotonicity_checked": 18980,
       "sufficiency": "USABLE",
       "can_claim_calibration": true,
-      "note": "3740 independent observations over 19.1 days"
+      "note": "3794 independent observations over 19.4 days"
     },
     {
       "symbol": "ETH-USD",
       "horizon_s": 1200,
       "data_source": "live",
-      "forecasts": 5406,
-      "resolved": 5400,
+      "forecasts": 5484,
+      "resolved": 5478,
       "void": 6,
-      "stale_resolved": 1434,
-      "n_timestamps": 900,
-      "n_non_overlapping": 900,
-      "n_days": 19.101777131689616,
+      "stale_resolved": 1464,
+      "n_timestamps": 913,
+      "n_non_overlapping": 913,
+      "n_days": 19.346580590933613,
       "first_forecast": "2026-09-16T02:14:59.839868Z",
-      "last_forecast": "2026-10-05T04:41:33.384046Z",
-      "brier": 0.15092413382066477,
-      "log_loss": 0.4559612288970067,
-      "calibration_error": 0.015283780760908874,
-      "observed_above_rate": 0.43148148148148147,
-      "mean_forecast_above": 0.4186765752462991,
-      "accuracy": 0.7611111111111111,
+      "last_forecast": "2026-10-05T10:34:04.402925Z",
+      "brier": 0.1507428399746697,
+      "log_loss": 0.455439343896463,
+      "calibration_error": 0.015062965052167752,
+      "observed_above_rate": 0.43099671412924423,
+      "mean_forecast_above": 0.4186767068978937,
+      "accuracy": 0.7617743702081051,
       "accuracy_interval": [
-        0.7495548535789174,
-        0.7722961199951414
+        0.7503122571013389,
+        0.7728695874816932
       ],
       "buckets": [
         {
           "low": 0.5,
           "high": 0.55,
-          "n": 900,
+          "n": 913,
           "predicted": 0.5,
-          "observed": 0.5144444444444445,
-          "ci_low": 0.48179942732705044,
-          "ci_high": 0.5469666750519505
+          "observed": 0.5125958378970427,
+          "ci_low": 0.4801880426745451,
+          "ci_high": 0.544898079072112
         },
         {
           "low": 0.55,
@@ -336,11 +336,11 @@
         {
           "low": 0.6,
           "high": 0.65,
-          "n": 1800,
-          "predicted": 0.6292306982094158,
-          "observed": 0.6511111111111111,
-          "ci_low": 0.6287917350495813,
-          "ci_high": 0.6727868514515838
+          "n": 1826,
+          "predicted": 0.6292308245552548,
+          "observed": 0.651697699890471,
+          "ci_low": 0.6295470583985081,
+          "ci_high": 0.6732113880156515
         },
         {
           "low": 0.65,
@@ -372,18 +372,18 @@
         {
           "low": 0.8,
           "high": 1.01,
-          "n": 2700,
-          "predicted": 0.9192519372187362,
-          "observed": 0.9262962962962963,
-          "ci_low": 0.9158231713985184,
-          "ci_high": 0.9355580633602042
+          "n": 2739,
+          "predicted": 0.9192516916104086,
+          "observed": 0.9266155531215772,
+          "ci_low": 0.9162407149978296,
+          "ci_high": 0.9357953632066134
         }
       ],
       "monotonicity_violations": 0,
-      "monotonicity_checked": 4505,
+      "monotonicity_checked": 4570,
       "sufficiency": "USABLE",
       "can_claim_calibration": true,
-      "note": "900 independent observations over 19.1 days"
+      "note": "913 independent observations over 19.3 days"
     }
   ],
   "stale_and_quality_events": {
@@ -392,5 +392,5 @@
     "price_anomaly": 5
   },
   "reconnects": 0,
-  "headline": "55668 live forecasts resolved (9278 independent observations). 4 of 4 groups have enough evidence for a calibration figure; none of them is evidence of skill against the baseline, which is a separate comparison that has not been run on live data."
+  "headline": "56472 live forecasts resolved (9412 independent observations). 4 of 4 groups have enough evidence for a calibration figure; none of them is evidence of skill against the baseline, which is a separate comparison that has not been run on live data."
 }
